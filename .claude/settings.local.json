@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip3 --version)",
+      "Read(//Users/fanyazhuoting/Documents/ISS/semester2/AI/Practice/**)",
+      "Bash(.venv/bin/python -c \"import fastapi, uvicorn, langgraph, chromadb, openai\" 2>&1)",
+      "Bash(pkill -f \"uvicorn main:app\")",
+      "Bash(curl -s http://127.0.0.1:8000/api/v1/admin/health)",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl:*)",
+      "mcp__figma__get_design_context",
+      "mcp__figma__get_metadata",
+      "mcp__figma__get_screenshot",
+      "Bash(python:*)",
+      "Bash(pip list:*)",
+      "Bash(pip show:*)",
+      "Bash(pip install:*)",
+      "Bash(node:*)",
+      "Bash(python3:*)"
+    ]
+  }
+}

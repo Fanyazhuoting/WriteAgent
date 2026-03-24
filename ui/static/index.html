@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WriteAgent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ═══ Sidebar ═══ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-text">WriteAgent</span>
+    </div>
+    <div class="sidebar-section-header">
+      <div class="sidebar-heading">Manuscript History</div>
+      <div class="sidebar-subheading">Chronological Scenes</div>
+    </div>
+    <div class="sidebar-btn-wrap">
+      <button type="button" class="btn-new-novel" id="newNovelBtn">
+        <svg width="8" height="9" viewBox="0 0 8 9" fill="none">
+          <path d="M4 1v7M1 4.5h6" stroke="#2e014b" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        New Novel
+      </button>
+    </div>
+    <nav class="novel-list" id="novelList"></nav>
+  </aside>
+
+  <!-- ═══ Main Wrapper ═══ -->
+  <div class="main-wrapper">
+
+    <!-- Top App Bar -->
+    <header class="top-appbar">
+      <nav class="tab-nav" id="tabNav">
+        <a class="tab-link active" data-tab="writer">Writer</a>
+        <a class="tab-link" data-tab="worldgraph">World Graph</a>
+        <a class="tab-link" data-tab="conflicts">Conflicts</a>
+        <a class="tab-link" data-tab="audit">Audit</a>
+      </nav>
+      <div class="appbar-right">
+        <div class="novel-id-display">
+          <svg width="14" height="12" viewBox="0 0 14 12" fill="none" style="opacity:0.5">
+            <rect x="1" y="1" width="12" height="10" rx="2" stroke="#94a3b8" stroke-width="1.2"/>
+            <path d="M4 4h6M4 7h4" stroke="#94a3b8" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+          <span id="novelIdText" style="color:#475569;font-size:12px;font-family:monospace;">Novel ID: —</span>
+          <button type="button" class="copy-btn" id="copyNovelId" title="Copy ID">
+            <svg width="11" height="13" viewBox="0 0 11 13" fill="none">
+              <rect x="3.5" y="3.5" width="7" height="9" rx="1.5" stroke="#c8c5cd" stroke-width="1.2"/>
+              <path d="M7 3V2a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h1.5" stroke="#c8c5cd" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="appbar-divider"></div>
+        <button type="button" class="btn-refresh-graph hidden" id="refreshGraphBtn">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <path d="M9 5A4 4 0 1 1 5 1" stroke="#2e014b" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M5 1l2-1v2L5 1z" fill="#2e014b"/>
+          </svg>
+          Refresh Graph
+        </button>
+        <div class="scene-badge" id="sceneBadge">S1</div>
+      </div>
+    </header>
+
+    <!-- ══ Writer Tab ══ -->
+    <div class="tab-content active" id="tab-writer">
+      <div class="writer-layout">
+
+        <!-- LEFT: Controls -->
+        <div class="writer-left" id="writerLeft">
+
+          <!-- Novel Settings -->
+          <div class="w-panel">
+            <div class="w-panel-header">
+              <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                <path d="M5.5 1l1.1 3.3H10l-2.7 2 1 3.1L5.5 7.5 3.2 9.4l1-3.1L1.5 4.3H4.4z" fill="#e2b5ff"/>
+              </svg>
+              <span>Novel Settings</span>
+            </div>
+
+            <!-- Language Toggle -->
+            <div class="form-group" style="margin-bottom:10px">
+              <label class="field-label">Output Language</label>
+              <div class="lang-toggle" id="langToggle">
+                <button type="button" class="lang-btn active" data-lang="English">EN English</button>
+                <button type="button" class="lang-btn" data-lang="Chinese">中文 Chinese</button>
+              </div>
+            </div>
+
+            <!-- Genre + Style -->
+            <div class="settings-row">
+              <div class="form-group">
+                <label class="field-label">Genre</label>
+                <div class="combo-box">
+                  <input id="genreInput" class="combo-input" list="genreOptions"
+                    placeholder="e.g. Fantasy, Sci-Fi…" autocomplete="off">
+                  <datalist id="genreOptions">
+                    <option value="Fantasy">
+                    <option value="Sci-Fi">
+                    <option value="Cyber-Gothic">
+                    <option value="Steampunk">
+                    <option value="Mystery">
+                    <option value="Romance">
+                    <option value="Thriller">
+                    <option value="Horror">
+                    <option value="Historical Fiction">
+                    <option value="Literary Fiction">
+                    <option value="Magical Realism">
+                    <option value="Dark Fantasy">
+                  </datalist>
+                  <svg class="combo-arrow" width="10" height="6" viewBox="0 0 10 6" fill="none">
+                    <path d="M1 1l4 4 4-4" stroke="#64748b" stroke-width="1.5" stroke-linecap="round"/>
+                  </svg>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="field-label">Style</label>
+                <div class="combo-box">
+                  <input id="styleInput" class="combo-input" list="styleOptions"
+                    placeholder="e.g. Third-person, Hard-boiled…" autocomplete="off">
+                  <datalist id="styleOptions">
+                    <option value="Third-person limited, literary fiction">
+                    <option value="Third-person omniscient">
+                    <option value="First-person, confessional">
+                    <option value="Hard-boiled, terse">
+                    <option value="Stream of consciousness">
+                    <option value="Epistolary">
+                    <option value="Unreliable narrator">
+                    <option value="Lyrical prose">
+                    <option value="Minimalist">
+                  </datalist>
+                  <svg class="combo-arrow" width="10" height="6" viewBox="0 0 10 6" fill="none">
+                    <path d="M1 1l4 4 4-4" stroke="#64748b" stroke-width="1.5" stroke-linecap="round"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Characters -->
+            <div class="entities-section">
+              <label class="field-label">Characters</label>
+              <div id="charsList" class="entities-list"></div>
+              <button type="button" class="btn-add-entity" id="addCharBtn">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <circle cx="6" cy="6" r="5.25" stroke="currentColor" stroke-width="1.5"/>
+                  <path d="M6 3.5v5M3.5 6h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                Add Character
+              </button>
+            </div>
+
+            <!-- World Rules -->
+            <div class="entities-section">
+              <label class="field-label">World Rules</label>
+              <div id="rulesList" class="entities-list"></div>
+              <button type="button" class="btn-add-entity" id="addRuleBtn">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <circle cx="6" cy="6" r="5.25" stroke="currentColor" stroke-width="1.5"/>
+                  <path d="M6 3.5v5M3.5 6h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                Add Rule
+              </button>
+            </div>
+
+            <button type="button" class="btn-start-novel" id="startNovelBtn">Start Novel</button>
+            <div id="settingsLockedHint" style="display:none;margin-top:6px;font-size:11px;color:#94a3b8;padding:0 2px;">
+              🔒 Genre, style &amp; language are locked for this novel. Click <strong>New Novel</strong> to start fresh.
+            </div>
+            <div class="status-bar" id="startStatus"></div>
+          </div>
+
+          <!-- Generate Scene -->
+          <div class="w-panel" style="margin-top:1px">
+            <div class="w-panel-header">
+              <svg width="11" height="13" viewBox="0 0 11 13" fill="none">
+                <path d="M5.5 1L7 5.5H11L7.8 8.2 9 12.5 5.5 9.8 2 12.5 3.2 8.2 0 5.5H4z" fill="#ffe2ab"/>
+              </svg>
+              <span>Generate Next Scene</span>
+            </div>
+            <div class="brief-wrap">
+              <textarea id="sceneBriefInput" class="brief-input" rows="8"
+                placeholder="Describe what happens in this scene…"></textarea>
+              <div class="brief-charcount" id="briefCharCount">0 chars</div>
+            </div>
+            <button type="button" class="btn-distill" id="generateSceneBtn">
+              <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                <path d="M5.5 1l1.1 3.3H10l-2.7 2 1 3.1L5.5 7.5 3.2 9.4l1-3.1L1.5 4.3H4.4z" fill="currentColor"/>
+              </svg>
+              Distill Prose
+            </button>
+          </div>
+
+          <!-- Inject Plot Event -->
+          <div class="w-panel inject-panel" style="margin-top:1px">
+            <div class="w-panel-header">
+              <span class="inject-icon">!</span>
+              <span>Inject Plot Event</span>
+            </div>
+            <div class="inject-body" id="injectBody">
+              <p class="inject-hint">Force a plot twist into the next scene — a sudden revelation, an unexpected arrival, a secret exposed. Click <strong>Distill Prose</strong> after injecting to generate the scene.</p>
+              <textarea id="injectEventInput" rows="3" class="form-input"
+                placeholder="e.g. Zhang Chengze receives an anonymous call claiming to know the identity of the mastermind behind their captivity…"></textarea>
+              <button type="button" class="btn-inject" id="injectEventBtn" style="margin-top:10px">Inject Event</button>
+              <div class="status-bar" id="injectStatus"></div>
+            </div>
+          </div>
+
+          <!-- bottom spacer so last element isn't clipped -->
+          <div style="height:32px;flex-shrink:0"></div>
+        </div><!-- end writer-left -->
+
+        <!-- Resize Handle -->
+        <div class="resize-handle" id="resizeHandle">
+          <div class="resize-grip"></div>
+        </div>
+
+        <!-- RIGHT: Novel Display -->
+        <div class="writer-right">
+
+          <!-- Top bar -->
+          <div class="prose-topbar">
+            <div class="prose-scene-pill" id="proseScenesLabel">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <rect x="1" y="1" width="10" height="10" rx="2" stroke="#94a3b8" stroke-width="1.2"/>
+                <path d="M3 4h6M3 6.5h4" stroke="#94a3b8" stroke-width="1" stroke-linecap="round"/>
+              </svg>
+              <span id="proseSceneName">No scene yet</span>
+              <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
+                <path d="M1 1l4 4 4-4" stroke="#64748b" stroke-width="1.3" stroke-linecap="round"/>
+              </svg>
+              <div class="scene-dropdown hidden" id="sceneDropdown"></div>
+            </div>
+            <div class="prose-word-count">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <rect x="1" y="1" width="10" height="10" rx="2" stroke="#64748b" stroke-width="1.2"/>
+                <path d="M3 4h6M3 6h6M3 8h4" stroke="#64748b" stroke-width="1" stroke-linecap="round"/>
+              </svg>
+              <span id="wordCountDisplay">0 words total</span>
+            </div>
+            <div class="prose-actions">
+              <button type="button" class="prose-action-btn" id="copyProseBtn" title="Copy all prose">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <rect x="4" y="4" width="9" height="10" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+                  <path d="M10 4V2.5A1.5 1.5 0 0 0 8.5 1H2.5A1.5 1.5 0 0 0 1 2.5v8A1.5 1.5 0 0 0 2.5 12H4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                </svg>
+                COPY
+              </button>
+              <button type="button" class="prose-action-btn" id="downloadProseBtn" title="Download as .txt">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M7 1v8M4 6l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M1 10v1.5A1.5 1.5 0 0 0 2.5 13h9A1.5 1.5 0 0 0 13 11.5V10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                </svg>
+                EXPORT
+              </button>
+            </div>
+          </div>
+
+          <!-- Conflict Banner -->
+          <div class="conflict-banner hidden" id="conflictBanner">
+            <div class="conflict-banner-icon">⚠</div>
+            <div class="conflict-banner-body">
+              <div class="conflict-banner-title">Story Conflicts Detected</div>
+              <div class="conflict-banner-desc" id="conflictBannerDesc">
+                Agents could not fully resolve all contradictions in this scene.
+                <button type="button" class="conflict-banner-link" id="conflictBannerLink">View in Conflicts tab →</button>
+              </div>
+            </div>
+            <button type="button" class="conflict-banner-dismiss" id="conflictBannerDismiss">×</button>
+          </div>
+
+          <!-- Agent Pipeline -->
+          <div class="agent-pipeline hidden" id="agentPipeline">
+            <div class="pipeline-stages">
+
+              <div class="p-stage pending" id="stage-world">
+                <div class="p-circle">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M2 8h12M8 2c-2 2-3 4-3 6s1 4 3 6M8 2c2 2 3 4 3 6s-1 4-3 6" stroke="currentColor" stroke-width="1.2"/>
+                  </svg>
+                </div>
+                <span class="p-label">WORLD</span>
+              </div>
+
+              <div class="p-connector pending" data-idx="0">
+                <span class="p-dot"></span>
+                <span class="p-dot"></span>
+                <span class="p-dot"></span>
+              </div>
+
+              <div class="p-stage pending" id="stage-char">
+                <div class="p-circle">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  </svg>
+                </div>
+                <span class="p-label">CHAR</span>
+              </div>
+
+              <div class="p-connector pending" data-idx="1">
+                <span class="p-dot"></span>
+                <span class="p-dot"></span>
+                <span class="p-dot"></span>
+              </div>
+
+              <div class="p-stage pending" id="stage-plot">
+                <div class="p-circle">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 2L9.6 6.7H14.5L10.5 9.5 12 14 8 11.3 4 14 5.5 9.5 1.5 6.7H6.4z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+                <span class="p-label">PLOT</span>
+              </div>
+
+              <div class="p-connector pending" data-idx="2">
+                <span class="p-dot"></span>
+                <span class="p-dot"></span>
+                <span class="p-dot"></span>
+              </div>
+
+              <div class="p-stage pending" id="stage-logic">
+                <div class="p-circle">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M3 8l3.5 3.5L13 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+                <span class="p-label">LOGIC</span>
+              </div>
+
+              <div class="p-connector pending" data-idx="3">
+                <span class="p-dot"></span>
+                <span class="p-dot"></span>
+                <span class="p-dot"></span>
+              </div>
+
+              <div class="p-stage pending" id="stage-narr">
+                <div class="p-circle">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <rect x="2" y="2" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+                    <path d="M5 6h6M5 8.5h4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+                  </svg>
+                </div>
+                <span class="p-label">NARR</span>
+              </div>
+
+            </div>
+            <div class="pipeline-status" id="pipelineStatus">Initialising…</div>
+          </div>
+
+          <!-- Prose Display -->
+          <div class="prose-display" id="proseDisplay">
+            <div class="prose-empty" id="proseEmpty">
+              <svg width="48" height="48" viewBox="0 0 48 48" fill="none" opacity="0.3">
+                <rect x="8" y="6" width="32" height="36" rx="3" stroke="#e2b5ff" stroke-width="2"/>
+                <path d="M15 16h18M15 22h18M15 28h12" stroke="#e2b5ff" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              <p>Start a novel and generate a scene<br>to see the prose here.</p>
+            </div>
+            <div class="prose-book hidden" id="proseBook">
+              <div class="prose-epigraph" id="proseEpigraph"></div>
+              <div class="prose-scenes" id="proseScenes"></div>
+            </div>
+          </div>
+
+        </div><!-- end writer-right -->
+      </div>
+    </div>
+
+    <!-- ─── World Graph Tab ─── -->
+    <div class="tab-content hidden" id="tab-worldgraph">
+      <div class="graph-workspace" id="graphWorkspace">
+        <svg id="graphSvg"></svg>
+        <div class="entity-legend">
+          <div class="legend-title">Entity Legend</div>
+          <div class="legend-item"><span class="dot" style="background:#ff4d6d"></span>Characters</div>
+          <div class="legend-item"><span class="dot" style="background:#4cc9f0"></span>Locations</div>
+        </div>
+        <div class="graph-controls">
+          <button class="ctrl-btn" id="btnZoomIn">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M7 3v8M3 7h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <button class="ctrl-btn" id="btnZoomOut">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M3 7h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <button class="ctrl-btn" id="btnResetZoom">
+            <svg width="18" height="12" viewBox="0 0 18 12" fill="none">
+              <path d="M1 6h16M12 1l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="focus-card hidden" id="focusCard">
+          <div class="focus-header">
+            <div>
+              <span class="entity-type-badge character" id="fcType">Character</span>
+              <h2 class="fc-name" id="fcName">—</h2>
+            </div>
+            <button class="fc-close" id="fcClose">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M1 1l12 12M13 1L1 13" stroke="#64748b" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+          <div class="fc-body">
+            <div class="fc-section">
+              <div class="fc-label">Description</div>
+              <p class="fc-desc" id="fcDesc">—</p>
+            </div>
+            <div class="fc-stats">
+              <div><div class="fc-label">Mentions</div><div class="fc-stat-val purple" id="fcMentions">0</div></div>
+              <div><div class="fc-label">Connections</div><div class="fc-stat-val gold" id="fcConnections">0</div></div>
+            </div>
+            <button class="btn-view-story" id="fcViewStory">
+              <svg width="13" height="9" viewBox="0 0 13 9" fill="none">
+                <ellipse cx="6.5" cy="4.5" rx="5.5" ry="3.5" stroke="#e2e0fc" stroke-width="1.2"/>
+                <circle cx="6.5" cy="4.5" r="2" fill="#e2e0fc"/>
+              </svg>
+              View in Story Graph
+            </button>
+          </div>
+        </div>
+        <div class="graph-empty" id="graphEmpty">
+          <p>Select a novel from the sidebar and click <strong>Refresh Graph</strong> to visualize its world entities.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Conflicts Tab ─── -->
+    <div class="tab-content hidden" id="tab-conflicts">
+      <div class="table-view">
+        <div class="table-header">
+          <h2 class="section-title">Agent Negotiation Log</h2>
+          <p class="section-desc">When the Consistency Checker detects a contradiction, agents negotiate a resolution.</p>
+          <button class="btn-table-refresh" id="refreshConflictsBtn" style="margin-top:12px">Refresh</button>
+        </div>
+        <div id="conflictsTable"><div class="empty-state">Select a novel to view negotiations.</div></div>
+      </div>
+    </div>
+
+    <!-- ─── Audit Tab ─── -->
+    <div class="tab-content hidden" id="tab-audit">
+      <div class="table-view">
+        <div class="table-header">
+          <h2 class="section-title">Agent Audit Trail</h2>
+          <p class="section-desc">Every agent call is logged with timestamp, agent ID, token usage, and an output preview.</p>
+          <div class="audit-controls">
+            <label>Max Entries: <input type="number" id="auditLimit" value="50" min="10" max="500" class="num-input"></label>
+            <label class="checkbox-label"><input type="checkbox" id="auditFromDisk"> Read from disk</label>
+            <button class="btn-table-refresh" id="refreshAuditBtn">Refresh</button>
+          </div>
+        </div>
+        <div id="auditTable"><div class="empty-state">Select a novel to view the audit trail.</div></div>
+        <div class="audit-pagination hidden" id="auditPagination"></div>
+      </div>
+    </div>
+
+  </div><!-- end main-wrapper -->
+</div><!-- end app -->
+
+<script src="/static/app.js"></script>
+</body>
+</html>
