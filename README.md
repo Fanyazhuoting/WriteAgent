@@ -62,7 +62,7 @@ worldbuilding → character → plot → consistency
 | 阶段 | Agent | 职责 |
 |------|-------|------|
 | `worldbuilding` | WorldbuildingAgent | 读取世界规则，为本场景生成世界背景上下文 |
-| `character` | CharacterAgent | 从 ChromaDB 检索角色档案；返回各角色当前动态状态摘要（`character_states`）及永久属性快照（`character_profiles_snapshot`、`new_character_permanent`）；**本阶段不写入 DB** |
+| `character` | CharacterAgent | 从 ChromaDB 检索角色档案；返回各角色当前动态状态摘要（`character_states`）及永久属性快照（`character_profiles_snapshot`、`new_character_permanent`）；本阶段不写入 DB |
 | `plot` | PlotAgent | 基于世界上下文、角色状态和人类注入事件，严格按场景提要生成场景草稿 |
 | `consistency` | ConsistencyChecker | 对草稿与实体库做双层矛盾检测（见[一致性检测机制](#一致性检测机制)）；无矛盾 → 直接进入 narrative，有矛盾 → 进入 negotiation |
 | `negotiation` | 协商子图 | 修订 Agent 携带实体永久属性上下文修订草稿 → ConsistencyChecker 复检，最多循环 `MAX_NEGOTIATION_ROUNDS` 次；无论是否解决均继续进入 narrative，未解决的矛盾保留在 `negotiation_log` 中供审计 |
@@ -230,31 +230,13 @@ QWEN_MODEL_NAME=qwen-max            # 默认即可
 LANGCHAIN_TRACING_V2=false          # 没有 LangSmith Key 时务必设为 false（见已知问题）
 ```
 
-### 3. 启动后端
+### 3. 启动项目
 
 ```bash
-# 方式一：直接运行
-python main.py
-
-# 方式二：uvicorn（推荐开发）
 uvicorn main:app --reload --port 8000
 ```
 
-启动后访问 `http://localhost:8000/docs` 查看交互式 API 文档，或访问 `http://localhost:8000/static/index.html` 使用静态 Web UI。
-
-健康检查：
-
-```bash
-curl http://localhost:8000/api/v1/admin/health
-```
-
-### 4. 启动 Gradio 前端（可选，另开终端）
-
-```bash
-python -m ui.app
-```
-
-访问 `http://localhost:7860`，包含四个标签页：
+访问 `http://localhost:8000`，包含四个标签页：
 
 - **Writer** — 启动小说、逐场景生成、人类注入事件
 - **World Graph** — 实体知识图谱可视化
@@ -359,56 +341,6 @@ user_template: |
 ```bash
 curl -X PUT http://localhost:8000/api/v1/admin/prompts/plot_agent/v2
 ```
-
----
-
-## 已知问题与注意事项
-
-### 🐛 Bug 1：`entities.py` 路由顺序导致 `/graph` 端点不可达
-
-**文件**：`api/routes/entities.py`
-
-`GET /{novel_id}/graph` 路由定义在 `GET /{novel_id}/{entity_id}` **之后**。FastAPI 按注册顺序匹配路由，请求 `/entities/{novel_id}/graph` 会被前一个路由以 `entity_id="graph"` 拦截，导致知识图谱端点永远无法命中。
-
-**修复方法**：将 `get_entity_graph` 路由的 `@router.get("/{novel_id}/graph", ...)` 装饰器和函数体移至 `get_single_entity` 路由定义**之前**。
-
----
-
-### ⚠️ 注意 1：LangSmith 追踪默认开启，空 Key 会引发错误
-
-`settings.py` 中 `langchain_tracing_v2` 默认为 `True`，但 `langchain_api_key` 默认为空字符串。在没有有效 Key 的情况下启用追踪会导致 LangChain 内部网络请求失败，可能产生难以排查的异常。
-
-**建议**：在 `.env` 中明确设置 `LANGCHAIN_TRACING_V2=false`，仅在需要追踪时启用。
-
----
-
-### ⚠️ 注意 2：Token 计数使用 GPT-4 分词器（cl100k_base）
-
-`utils/token_counter.py` 使用 tiktoken 的 `cl100k_base`（GPT-4 分词器）估算 Qwen-max 的 token 消耗。对于中文或混合文本，两者分词粒度差异较大，实际 token 数可能被低估，影响 `HOT_CONTEXT_MAX_TOKENS` 等上下文预算控制的精度。
-
----
-
-### ⚠️ 注意 3：Novel 状态仅保存在内存，重启后丢失
-
-`api/dependencies.py` 中的 `_novel_states` 字典是进程内存储。FastAPI 服务重启后，所有正在进行的小说状态将全部丢失。代码注释中已提示"生产环境请替换为 Redis"。
-
----
-
-### ⚠️ 注意 4：WebSocket 使用轮询推送（0.5s 延迟）
-
-`api/websocket.py` 的 `ws_stream` 每 500ms 轮询一次事件队列，而非事件触发式推送。对实时性要求较高的场景会有最多 500ms 的推送延迟，且在空闲期持续占用 CPU。
-
----
-
-### ℹ️ 说明：代码预检当前仅覆盖发色与眼色
-
-`agents/consistency_checker.py` 中的 `_pre_check_physical_attributes()` 目前通过正则匹配发色和眼色两类体貌特征。身高、物种、肤色等其他永久属性的冲突仍完全依赖 LLM 判断。如需扩展，在该函数中补充对应的正则模式即可。
-
----
-
-### ℹ️ 说明：审计日志路径为相对路径
-
-`utils/audit_logger.py` 将 JSONL 审计日志写入相对路径 `audit_logs/`，具体位置取决于进程启动时的工作目录（通常是项目根目录）。部署时建议将其改为绝对路径或通过环境变量配置。
 
 ---
 
