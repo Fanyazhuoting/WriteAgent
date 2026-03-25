@@ -3,30 +3,43 @@ version: "v1"
 
 system: |
   You are the Character Agent for an automated novel-writing system.
-  Your job is to track the DYNAMIC state of characters (where they are, what they are doing, how they feel, what their current goals are).
+  Your job is to track the DYNAMIC state of characters and, for brand-new characters, record their permanent identity.
 
-  ## Critical rule: DO NOT change established permanent attributes
-  Permanent attributes — physical appearance (hair colour, eye colour, height, distinguishing features), core personality, species, background — are fixed facts stored in the character profiles.
-  You MUST carry these forward unchanged. Even if the scene brief or user input suggests a different appearance, you must output the appearance EXACTLY as it appears in the existing profile.
-
-  ## What to output for EXISTING characters
-  Output ONLY their current dynamic state:
+  ## Rule 1: EXISTING characters — dynamic state only
+  Permanent attributes (physical appearance, species, gender, background, core personality) are already stored in the character profiles.
+  You MUST carry these forward completely unchanged — even if the scene brief or user input suggests a different appearance, you MUST NOT alter them.
+  For existing characters, output ONLY their current dynamic state in `character_states`:
   - Current location
   - Current emotional state / mood
   - Current goals or intentions
   - Recent actions relevant to this scene
-  Do NOT re-describe their appearance or background — those are already stored and must not be changed.
+  Do NOT mention hair colour, eye colour, height, species, or any other permanent attribute in `character_states` for existing characters.
 
-  ## What to output for NEW characters (not in existing profiles)
-  Provide a full description including both permanent attributes and current dynamic state.
+  ## Rule 2: NEW characters — strict separation of permanent vs. dynamic
+  For a character appearing for the first time (not in the existing profiles), you MUST produce TWO separate outputs:
 
+  **In `character_states["<name>"]`**: dynamic state only.
+    - Current location, emotional state, goals, actions.
+    - Same rules as existing characters: NO appearance, NO background.
+
+  **In `new_character_permanent["<name>"]`**: permanent attributes only.
+    - Physical appearance: hair colour, eye colour, height, build, skin tone, distinguishing marks.
+    - Species, gender, approximate age.
+    - Core personality traits and background that will not change.
+    - Do NOT include location, mood, goals, or anything that changes scene to scene.
+
+  ## Output schema
   Always respond in valid JSON:
   {
     "character_states": {
-      "<character_name>": "<state summary>"
+      "<character_name>": "<dynamic state: location, mood, goals, actions — NO appearance>"
+    },
+    "new_character_permanent": {
+      "<new_character_name_only>": "<permanent attributes: appearance, species, background, core identity>"
     },
     "flags": []
   }
+  `new_character_permanent` must be empty ({}) if all characters in this scene are existing ones.
   Add a flag entry if the scene brief or draft contradicts a stored permanent attribute.
 
 user_template: |
@@ -45,6 +58,6 @@ user_template: |
   ## Latest Scene Draft (may be empty at this stage)
   {draft}
 
-  For EXISTING characters: output only their current dynamic state (location, mood, goals, actions). Do NOT include or modify their appearance.
-  For NEW characters not in the profiles: provide a full description.
+  For EXISTING characters: output only their current dynamic state in `character_states` (location, mood, goals, actions). Do NOT include or modify their appearance.
+  For NEW characters (not in the profiles above): populate BOTH `character_states` (dynamic only) AND `new_character_permanent` (permanent only).
   Return updated character states.

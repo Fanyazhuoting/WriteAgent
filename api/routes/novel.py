@@ -149,6 +149,7 @@ def next_scene(
     state["negotiation_round"] = 0
     state["negotiation_resolved"] = False
     state["character_profiles_snapshot"] = {}
+    state["new_character_permanent"] = {}
     states[novel_id] = state
 
     _generation_jobs[novel_id] = {"status": "generating"}

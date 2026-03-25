@@ -22,6 +22,7 @@ class GraphState(TypedDict):
     world_rules_context: str
     character_states: dict[str, str]                        # {char_name: dynamic_state_summary}
     character_profiles_snapshot: dict[str, dict]            # {char_name: full EntityDoc fields} — for final DB commit
+    new_character_permanent: dict[str, str]                 # {char_name: permanent_attrs_only} — new chars first appearing this scene
     plot_events: Annotated[list[str], operator.add]         # append-only
     raw_scene_draft: str
 
@@ -73,6 +74,7 @@ def initial_state(
         world_rules_context="",
         character_states={},
         character_profiles_snapshot={},
+        new_character_permanent={},
         plot_events=[],
         raw_scene_draft="",
         retrieved_entities=[],

@@ -66,11 +66,14 @@ class CharacterAgent(BaseAgent):
         result = self._parse_json(content)
 
         character_states: dict[str, str] = result.get("character_states", {})
+        # Only populated for characters NOT already in character_profiles_snapshot
+        new_character_permanent: dict[str, str] = result.get("new_character_permanent", {})
 
         # No DB writes here — NarrativeOutputAgent commits finalized states after prose is approved
         return {
             "character_states": character_states,
             "character_profiles_snapshot": character_profiles_snapshot,
+            "new_character_permanent": new_character_permanent,
             "agent_messages": [{
                 "agent_id": self.agent_id,
                 "content": content,
