@@ -16,7 +16,10 @@
       "Bash(pip show:*)",
       "Bash(pip install:*)",
       "Bash(node:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(rm /Users/fanyazhuoting/Documents/ISS/semester2/AI/Practice/WriteAgent/novel_states/*.json)",
+      "Bash(rm /Users/fanyazhuoting/Documents/ISS/semester2/AI/Practice/WriteAgent/audit_logs/*.jsonl)",
+      "Bash(rm -rf /Users/fanyazhuoting/Documents/ISS/semester2/AI/Practice/WriteAgent/chroma_data/*)"
     ]
   }
 }
