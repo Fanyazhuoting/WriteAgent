@@ -89,6 +89,7 @@ class AuditEntry(BaseModel):
 
 
 class NegotiationEntry(BaseModel):
+    scene_number: int = 0
     round_number: int
     participants: list[str]
     proposal: str

@@ -55,6 +55,7 @@ def get_negotiations(
     rounds = state.get("negotiation_log", [])
     return [
         NegotiationEntry(
+            scene_number=r.get("scene_number", 0),
             round_number=r.get("round_number", 0),
             participants=r.get("participants", []),
             proposal=r.get("proposal", ""),

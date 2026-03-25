@@ -48,23 +48,9 @@ class ConsistencyChecker(BaseAgent):
         has_contradiction = bool(result.get("has_contradiction", False))
         contradictions = result.get("contradictions", [])
 
-        # Always record this check as round 0 in negotiation_log so the
-        # Conflicts tab shows every check — not only ones that escalate.
-        detection_entry = {
-            "round_number": 0,
-            "participants": ["consistency_checker"],
-            "proposal": f"Scene {scene_number} consistency check",
-            "contradictions": contradictions,
-            "counter_proposal": None,
-            "resolution": "contradictions_found" if has_contradiction else "clean",
-            "resolved": not has_contradiction,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-
         return {
             "has_contradiction": has_contradiction,
             "contradictions": contradictions,
-            "negotiation_log": [detection_entry],
             "agent_messages": [{
                 "agent_id": self.agent_id,
                 "content": content,

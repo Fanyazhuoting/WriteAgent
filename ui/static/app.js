@@ -336,7 +336,7 @@ function resetToNewNovel() {
 $('newNovelBtn').addEventListener('click', resetToNewNovel);
 
 // ─── Character Card System ─────────────────────
-const GENDER_LABELS = { male: '男', female: '女', unknown: '不详' };
+const GENDER_LABELS = { male: 'Male', female: 'Female', unknown: 'Unknown' };
 const GENDER_COLORS = { male: '#60a5fa', female: '#f472b6', unknown: '#94a3b8' };
 
 function buildCharCard(name, desc, gender = 'unknown') {
@@ -377,19 +377,19 @@ function buildCharEditRow(name = '', desc = '', gender = 'unknown') {
     <div class="entity-row-fields">
       <div class="entity-field">
         <span class="entity-field-label">Character Name</span>
-        <input type="text" class="entity-input char-name" placeholder="e.g. 章成泽" value="${esc(name)}">
+        <input type="text" class="entity-input char-name" placeholder="e.g. Elena Thorne" value="${esc(name)}">
       </div>
       <div class="entity-row-fields-inline" style="margin-top:6px;gap:8px">
         <div class="entity-field entity-field-grow">
           <span class="entity-field-label">Description / Role</span>
-          <input type="text" class="entity-input char-desc" placeholder="e.g. 律师，内敛冷静" value="${esc(desc)}">
+          <input type="text" class="entity-input char-desc" placeholder="e.g. A disgraced lawyer, calm under pressure" value="${esc(desc)}">
         </div>
         <div class="entity-field entity-field-fixed">
           <span class="entity-field-label">Gender</span>
           <select class="severity-select char-gender">
-            <option value="male"${gender === 'male' ? ' selected' : ''}>男</option>
-            <option value="female"${gender === 'female' ? ' selected' : ''}>女</option>
-            <option value="unknown"${gender === 'unknown' ? ' selected' : ''}>不详</option>
+            <option value="male"${gender === 'male' ? ' selected' : ''}>Male</option>
+            <option value="female"${gender === 'female' ? ' selected' : ''}>Female</option>
+            <option value="unknown"${gender === 'unknown' ? ' selected' : ''}>Unknown</option>
           </select>
         </div>
       </div>
@@ -1055,6 +1055,35 @@ function formatContradictions(contradictions, fallbackProposal) {
   }).join('');
 }
 
+// ─── Format a single contradiction into a readable sentence ──────────────────
+function formatContradictionItem(c) {
+  const field      = c.field || '';
+  const stored     = esc(c.stored_value || '');
+  const inDraft    = esc(c.new_value   || '');
+  const sevColor   = c.severity === 'critical' ? '#ff4d6d' : '#f59e0b';
+  const sevLabel   = c.severity === 'critical' ? 'Critical' : 'Minor';
+  const sevTag     = `<span style="color:${sevColor};font-weight:700">[${sevLabel}]</span>`;
+
+  // Parse field into a human-readable subject
+  // Formats: "character.Name.attribute", "world_rule.ruleName", "continuity.topic"
+  const parts = field.split('.');
+  let subject = '';
+  if (parts[0] === 'character' && parts.length >= 3) {
+    subject = `Character <strong>${esc(parts[1])}</strong>'s ${esc(parts.slice(2).join('.'))}`;
+  } else if (parts[0] === 'world_rule') {
+    subject = `World rule <strong>${esc(parts.slice(1).join('.'))}</strong>`;
+  } else if (parts[0] === 'continuity') {
+    subject = `Continuity — <strong>${esc(parts.slice(1).join('.'))}</strong>`;
+  } else {
+    subject = `<strong>${esc(field)}</strong>`;
+  }
+
+  return `${sevTag} ${subject}` +
+         `<div style="margin-top:4px;font-size:11px;color:var(--text-muted)">` +
+         `Established: <em>"${stored}"</em><br>` +
+         `In draft: <em>"${inDraft}"</em></div>`;
+}
+
 async function loadConflicts() {
   if (!state.activeNovelId) return;
   const wrap = $('conflictsTable');
@@ -1062,32 +1091,32 @@ async function loadConflicts() {
   try {
     const resp   = await fetch(`${API}/audit/${state.activeNovelId}/negotiations`);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const rounds = await resp.json();
+    const allRounds = await resp.json();
+    // Filter out stale/empty entries (round 0 with no contradictions — legacy data)
+    const rounds = (allRounds || []).filter(r =>
+      r.round_number > 0 || (r.contradictions && r.contradictions.length > 0)
+    );
     if (!rounds || rounds.length === 0) {
-      wrap.innerHTML = '<div class="empty-state">No consistency checks recorded yet.</div>';
+      wrap.innerHTML = '<div class="empty-state">No conflicts detected yet.</div>';
       return;
     }
-    const headers = ['Type', 'Scene Check / Round', 'Contradictions Detected', 'Result', 'Time'];
+    const headers = ['Chapter', 'Negotiation Round', 'Contradictions Detected', 'Result', 'Time'];
     const rows = rounds.map(r => {
-      const isDetection = r.round_number === 0;
-      const typeTag = isDetection
-        ? '<span class="badge-detect">🔍 Detection</span>'
-        : '<span class="badge-nego">⚖️ Negotiation</span>';
-      const roundLabel = isDetection
-        ? esc(r.proposal || '—')
-        : `Round ${r.round_number}`;
+      const chapterLabel = r.scene_number ? `Scene ${r.scene_number}` : '—';
+      const roundLabel   = `Round ${r.round_number}`;
+
+      const contradictionHtml = (r.contradictions && r.contradictions.length > 0)
+        ? r.contradictions.map(formatContradictionItem).join(
+            '<hr style="border:none;border-top:1px solid var(--border);margin:8px 0">')
+        : '<span style="color:var(--text-faint)">—</span>';
+
       const resultTag = r.resolved
-        ? '<span class="resolved-yes">✓ Clean</span>'
-        : (r.resolution === 'contradictions_found'
-            ? '<span class="resolved-no">⚠ Escalating…</span>'
-            : '<span class="resolved-no">✗ Unresolved</span>');
-      return [
-        typeTag,
-        roundLabel,
-        formatContradictions(r.contradictions, r.proposal),
-        resultTag,
-        fmtTimestamp(r.timestamp),
-      ];
+        ? '<span class="resolved-yes">✓ Resolved</span>'
+        : (r.resolution === 'pending'
+            ? '<span class="resolved-no">✗ Unresolved</span>'
+            : `<span class="resolved-no">✗ ${esc(r.resolution || 'Unresolved')}</span>`);
+
+      return [chapterLabel, roundLabel, contradictionHtml, resultTag, fmtTimestamp(r.timestamp)];
     });
     wrap.innerHTML = buildTable(headers, rows, [false, false, true, true, false]);
   } catch (err) { $('conflictsTable').innerHTML = `<div class="empty-state">Error: ${esc(err.message)}</div>`; }
@@ -1134,14 +1163,14 @@ async function loadAudit(offset = 0) {
 }
 
 function renderAuditPagination(total, offset, limit) {
-  const pagDiv  = $('auditPagination');
+  const pagDiv = $('auditPagination');
   if (total <= limit) { pagDiv.classList.add('hidden'); return; }
-  const page    = Math.floor(offset / limit) + 1;
-  const pages   = Math.ceil(total / limit);
+  const page  = Math.floor(offset / limit) + 1;
+  const pages = Math.ceil(total / limit);
   pagDiv.classList.remove('hidden');
   pagDiv.innerHTML = `
     <button type="button" class="page-btn" id="pagePrev" ${offset === 0 ? 'disabled' : ''}>← Prev</button>
-    <span class="page-info">Page ${page} / ${pages}</span>
+    <span class="page-info">Page ${page} / ${pages} &nbsp;·&nbsp; ${total} entries</span>
     <button type="button" class="page-btn" id="pageNext" ${offset + limit >= total ? 'disabled' : ''}>Next →</button>
   `;
   pagDiv.querySelector('#pagePrev')?.addEventListener('click', () => loadAudit(Math.max(0, offset - limit)));

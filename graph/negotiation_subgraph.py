@@ -67,6 +67,7 @@ def run_negotiation(state: dict) -> dict:
     """
     draft = state.get("raw_scene_draft", "")
     contradictions = state.get("contradictions", [])
+    scene_number = state.get("current_scene_number", 0)
     max_rounds = settings.max_negotiation_rounds
 
     negotiation_log: list[dict] = []
@@ -91,6 +92,7 @@ def run_negotiation(state: dict) -> dict:
             # Veto — worldbuilding agent corrected the draft
             corrected = wb_result.get("raw_scene_draft", revised_draft)
             negotiation_log.append({
+                "scene_number": scene_number,
                 "round_number": round_num,
                 "participants": ["plot_agent", "worldbuilding_agent"],
                 "proposal": _format_contradictions(contradictions),
@@ -118,6 +120,7 @@ def run_negotiation(state: dict) -> dict:
         new_contradictions = check_result.get("contradictions", [])
 
         negotiation_log.append({
+            "scene_number": scene_number,
             "round_number": round_num,
             "participants": ["plot_agent", "consistency_checker", "worldbuilding_agent"],
             "proposal": _format_contradictions(contradictions),
