@@ -2,8 +2,7 @@
 from __future__ import annotations
 
 from .base_agent import BaseAgent
-from memory.entity_store import query_entities, upsert_entity
-from memory.schemas import EntityDoc
+from memory.entity_store import query_entities
 from prompts.registry import registry
 
 
@@ -20,11 +19,34 @@ class CharacterAgent(BaseAgent):
 
         # Fetch character entities from ChromaDB
         characters = query_entities(novel_id, scene_brief, entity_type="character", k=10)
-        character_profiles = "\n\n".join(
-            f"**{c.name}** (v{c.version}): {c.description}" for c in characters
-        ) or "(no characters established yet)"
 
+        # Build profile display: show permanent attributes + last known dynamic state
+        profile_parts = []
+        for c in characters:
+            entry = f"**{c.name}** (v{c.version}): {c.description}"
+            if c.current_state:
+                entry += f"\n  [Last known state] {c.current_state}"
+            profile_parts.append(entry)
+        character_profiles = "\n\n".join(profile_parts) or "(no characters established yet)"
         characters_list = ", ".join(c.name for c in characters) or "(unknown)"
+
+        # Build snapshot dict: permanent entity metadata keyed by name for downstream upsert
+        # NOTE: this does NOT get written to DB here — NarrativeOutputAgent commits after finalization
+        character_profiles_snapshot: dict[str, dict] = {
+            c.name: {
+                "entity_id": c.entity_id,
+                "entity_type": c.entity_type,
+                "name": c.name,
+                "novel_id": c.novel_id,
+                "description": c.description,   # permanent attributes — never overwritten here
+                "current_state": c.current_state,
+                "version": c.version,
+                "last_updated_scene": c.last_updated_scene,
+                "tags": c.tags,
+                "is_active": c.is_active,
+            }
+            for c in characters
+        }
 
         prompt_data = registry.get(self.prompt_name)
         user_msg = prompt_data["user_template"].format(
@@ -45,26 +67,10 @@ class CharacterAgent(BaseAgent):
 
         character_states: dict[str, str] = result.get("character_states", {})
 
-        # Upsert updated states back to ChromaDB
-        existing = {c.name: c for c in characters}
-        for name, state_summary in character_states.items():
-            if name in existing:
-                entity = existing[name]
-                entity.description = state_summary
-                entity.version += 1
-                entity.last_updated_scene = scene_number
-            else:
-                entity = EntityDoc(
-                    entity_type="character",
-                    name=name,
-                    novel_id=novel_id,
-                    description=state_summary,
-                    last_updated_scene=scene_number,
-                )
-            upsert_entity(entity)
-
+        # No DB writes here — NarrativeOutputAgent commits finalized states after prose is approved
         return {
             "character_states": character_states,
+            "character_profiles_snapshot": character_profiles_snapshot,
             "agent_messages": [{
                 "agent_id": self.agent_id,
                 "content": content,

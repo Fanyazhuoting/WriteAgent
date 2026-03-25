@@ -11,13 +11,8 @@ from .nodes import (
     node_consistency,
     node_negotiation,
     node_narrative,
-    node_human_review,
 )
-from .edges import (
-    route_after_consistency,
-    route_after_negotiation,
-    route_after_human_review,
-)
+from .edges import route_after_consistency
 
 
 def build_graph() -> StateGraph:
@@ -31,7 +26,6 @@ def build_graph() -> StateGraph:
     graph.add_node("consistency", node_consistency)
     graph.add_node("negotiation", node_negotiation)
     graph.add_node("narrative", node_narrative)
-    graph.add_node("human_review", node_human_review)
 
     # Entry point
     graph.set_entry_point("worldbuilding")
@@ -41,7 +35,7 @@ def build_graph() -> StateGraph:
     graph.add_edge("character", "plot")
     graph.add_edge("plot", "consistency")
 
-    # Conditional edges
+    # Conditional: contradiction → negotiate, else → narrative
     graph.add_conditional_edges(
         "consistency",
         route_after_consistency,
@@ -50,23 +44,9 @@ def build_graph() -> StateGraph:
             "narrative": "narrative",
         },
     )
-    graph.add_conditional_edges(
-        "negotiation",
-        route_after_negotiation,
-        {
-            "human_review": "human_review",
-            "narrative": "narrative",
-        },
-    )
-    graph.add_conditional_edges(
-        "human_review",
-        route_after_human_review,
-        {
-            "human_review": "human_review",
-            "consistency": "consistency",
-            "narrative": "narrative",
-        },
-    )
+
+    # Negotiation always proceeds to narrative (unresolved issues are logged)
+    graph.add_edge("negotiation", "narrative")
 
     # Terminal
     graph.add_edge("narrative", END)

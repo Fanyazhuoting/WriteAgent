@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from .base_agent import BaseAgent
-from memory.entity_store import archive_scene, upsert_entity, query_entities
+from memory.entity_store import archive_scene, upsert_entity, query_entities, list_entities
 from memory.schemas import EntityDoc, SceneArchiveDoc
 from utils.token_counter import count_tokens
 from prompts.registry import registry
@@ -22,6 +22,7 @@ class NarrativeOutputAgent(BaseAgent):
         output_language = state.get("output_language", "English")
         draft = state.get("raw_scene_draft", "")
         character_states = state.get("character_states", {})
+        character_profiles_snapshot = state.get("character_profiles_snapshot", {})
         world_rules_context = state.get("world_rules_context", "")
         scene_history = state.get("scene_history", [])
 
@@ -129,6 +130,38 @@ class NarrativeOutputAgent(BaseAgent):
             archive_scene(archive_doc)
         except Exception:
             pass  # don't fail if archive fails
+
+        # Commit finalised character states to DB now that the scene is approved.
+        # Uses snapshot from CharacterAgent so permanent attributes are never overwritten.
+        for name, state_summary in character_states.items():
+            try:
+                if name in character_profiles_snapshot:
+                    profile = character_profiles_snapshot[name]
+                    entity = EntityDoc(
+                        entity_id=profile["entity_id"],
+                        entity_type=profile["entity_type"],
+                        name=profile["name"],
+                        novel_id=profile["novel_id"],
+                        description=profile["description"],   # permanent — unchanged
+                        current_state=state_summary,          # dynamic state updated
+                        last_updated_scene=scene_number,
+                        version=profile["version"] + 1,
+                        tags=profile.get("tags", ""),
+                        is_active=profile.get("is_active", True),
+                    )
+                else:
+                    # New character not in snapshot — create fresh entry
+                    entity = EntityDoc(
+                        entity_type="character",
+                        name=name,
+                        novel_id=novel_id,
+                        description=state_summary,
+                        current_state=state_summary,
+                        last_updated_scene=scene_number,
+                    )
+                upsert_entity(entity)
+            except Exception:
+                pass  # don't fail scene generation for a character upsert error
 
         return {
             "final_prose": final_prose,

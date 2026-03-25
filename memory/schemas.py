@@ -15,7 +15,8 @@ class EntityDoc(BaseModel):
     entity_type: EntityType
     name: str
     novel_id: str
-    description: str          # natural language state description (the ChromaDB document)
+    description: str          # permanent attributes (appearance, background) — embedded for semantic search
+    current_state: str = ""   # dynamic scene state — stored in metadata only, not embedded
     last_updated_scene: int = 0
     version: int = 1
     tags: str = ""            # comma-separated for Chroma metadata filtering

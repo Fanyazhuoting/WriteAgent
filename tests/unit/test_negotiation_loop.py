@@ -13,15 +13,6 @@ def isolated_chroma(tmp_path, monkeypatch):
     cc._client = None
 
 
-def _wb_response(veto: bool = False) -> str:
-    return json.dumps({
-        "world_rules_context": "No magic without crystals.",
-        "veto": veto,
-        "veto_reason": "Magic used without crystals." if veto else None,
-        "corrected_draft": "Elena used a crystal to cast the spell." if veto else None,
-    })
-
-
 def _checker_response(has_contradiction: bool) -> str:
     return json.dumps({
         "has_contradiction": has_contradiction,
@@ -39,13 +30,8 @@ def _revision_response() -> str:
 
 
 def test_negotiation_resolves_in_one_round():
-    call_sequence = [
-        _revision_response(),          # revision request
-        _wb_response(veto=False),      # worldbuilding validation
-        _checker_response(False),      # recheck passes
-    ]
-    with patch("agents.base_agent.chat_completion", side_effect=call_sequence), \
-         patch("graph.negotiation_subgraph.chat_completion", return_value=_revision_response()):
+    with patch("graph.negotiation_subgraph.chat_completion", return_value=_revision_response()), \
+         patch("agents.base_agent.chat_completion", return_value=_checker_response(False)):
         from graph.negotiation_subgraph import run_negotiation
         state = {
             "novel_id": "test-001",
@@ -66,9 +52,10 @@ def test_negotiation_resolves_in_one_round():
         assert result["negotiation_round"] >= 1
 
 
-def test_veto_exits_immediately():
-    with patch("agents.base_agent.chat_completion", return_value=_wb_response(veto=True)), \
-         patch("graph.negotiation_subgraph.chat_completion", return_value=_revision_response()):
+def test_negotiation_proceeds_to_narrative_when_unresolved():
+    """Even if contradictions persist, negotiation always proceeds (no veto/human_review)."""
+    with patch("graph.negotiation_subgraph.chat_completion", return_value=_revision_response()), \
+         patch("agents.base_agent.chat_completion", return_value=_checker_response(True)):
         from graph.negotiation_subgraph import run_negotiation
         state = {
             "novel_id": "test-001",
@@ -85,5 +72,8 @@ def test_veto_exits_immediately():
             "negotiation_round": 0,
         }
         result = run_negotiation(state)
-        assert result["veto_active"] is True
-        assert result["negotiation_resolved"] is True
+        # Should always return a draft and log — never block
+        assert "raw_scene_draft" in result
+        assert "negotiation_log" in result
+        assert "veto_active" not in result
+        assert "awaiting_human" not in result

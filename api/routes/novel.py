@@ -56,7 +56,7 @@ def _run_graph(novel_id: str, state: dict, ws_queues: dict):
                 "final_prose": result_state.get("final_prose", ""),
                 "contradictions_found": len(result_state.get("contradictions", [])),
                 "negotiation_rounds": result_state.get("negotiation_round", 0),
-                "veto_triggered": bool(result_state.get("veto_active")),
+                "negotiation_resolved": bool(result_state.get("negotiation_resolved")),
             },
         }
         _push_ws_event(novel_id, {
@@ -121,7 +121,6 @@ def start_novel(
         novel_id=novel_id,
         phase="worldbuilding",
         current_scene_number=1,
-        awaiting_human=False,
         error=None,
     )
 
@@ -147,10 +146,9 @@ def next_scene(
     state["phase"] = "worldbuilding"
     state["has_contradiction"] = False
     state["contradictions"] = []
-    state["veto_active"] = False
     state["negotiation_round"] = 0
     state["negotiation_resolved"] = False
-    state["awaiting_human"] = False
+    state["character_profiles_snapshot"] = {}
     states[novel_id] = state
 
     _generation_jobs[novel_id] = {"status": "generating"}
@@ -180,7 +178,6 @@ def generation_status(novel_id: str, states=Depends(get_state_store)):
     state = states.get(novel_id, {})
     phase = state.get("phase", "worldbuilding")
     has_conflict = bool(state.get("has_contradiction"))
-    awaiting_human = bool(state.get("awaiting_human"))
     negotiation_round = state.get("negotiation_round", 0)
     contradictions = state.get("contradictions", [])
 
@@ -188,7 +185,6 @@ def generation_status(novel_id: str, states=Depends(get_state_store)):
         "status": "generating",
         "phase": phase,
         "has_conflict": has_conflict,
-        "awaiting_human": awaiting_human,
         "negotiation_round": negotiation_round,
         "contradictions": contradictions,
     }
@@ -213,7 +209,6 @@ def inject_event(
 
     state = states[novel_id]
     state["human_injection"] = san.text
-    state["awaiting_human"] = False
     if body.next_scene_brief:
         state["current_scene_brief"] = body.next_scene_brief
     states[novel_id] = state
@@ -229,7 +224,6 @@ def get_status(novel_id: str, states=Depends(get_state_store)):
         novel_id=novel_id,
         phase=state.get("phase", "unknown"),
         current_scene_number=state.get("current_scene_number", 0),
-        awaiting_human=state.get("awaiting_human", False),
         error=state.get("error"),
     )
 

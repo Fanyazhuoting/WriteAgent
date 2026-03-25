@@ -1,6 +1,7 @@
 """Audit trail endpoints."""
 from __future__ import annotations
 
+from typing import Optional
 from fastapi import APIRouter, Query
 from api.models import AuditEntry, NegotiationEntry
 from api.dependencies import get_state_store
@@ -42,6 +43,44 @@ def get_audit_trail(
         for e in entries
     ]
     return {"items": items, "total": total, "offset": offset, "limit": limit}
+
+
+@router.get("/{novel_id}/conflicts")
+def get_conflicts(
+    novel_id: str,
+    scene_number: Optional[int] = Query(None, description="Filter by scene number"),
+    states: dict = Depends(get_state_store),
+):
+    """
+    Returns the conflict detection and negotiation log.
+    Round 0 = initial detection by ConsistencyChecker.
+    Rounds 1+ = negotiation revision attempts.
+    Optionally filter by scene_number.
+    """
+    state = states.get(novel_id)
+    if not state:
+        return []
+    rounds = state.get("negotiation_log", [])
+
+    if scene_number is not None:
+        rounds = [r for r in rounds if r.get("scene_number") == scene_number]
+
+    result = []
+    for r in rounds:
+        round_num = r.get("round_number", 0)
+        contradictions = r.get("contradictions", [])
+        result.append({
+            "scene_number": r.get("scene_number", 0),
+            "round_number": round_num,
+            # Round 0: initial detection; rounds 1+: contradictions before revision
+            "entity_conflicts": contradictions if round_num == 0 else [],
+            "contradictions_before": contradictions if round_num > 0 else [],
+            "contradictions_after": r.get("contradictions_after", []),
+            "resolution": r.get("resolution"),
+            "resolved": r.get("resolved", False),
+            "timestamp": r.get("timestamp"),
+        })
+    return result
 
 
 @router.get("/{novel_id}/negotiations", response_model=list[NegotiationEntry])
