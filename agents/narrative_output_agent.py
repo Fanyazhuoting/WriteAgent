@@ -8,7 +8,37 @@ from memory.entity_store import archive_scene, upsert_entity, query_entities, li
 from memory.schemas import EntityDoc, SceneArchiveDoc
 from utils.token_counter import count_tokens
 from utils.audit_logger import log_agent_call
+from utils.llm_client import chat_completion
 from prompts.registry import registry
+
+
+def _extract_permanent_attrs_via_llm(name: str, full_description: str) -> str:
+    """
+    Fallback mini-call: when CharacterAgent did not provide new_character_permanent,
+    ask the LLM to extract only permanent attributes from the full state_summary.
+    This is a small, focused call — not a full agent invocation.
+    """
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "Extract ONLY the permanent attributes of the character from the description below. "
+                "Permanent attributes are: physical appearance (hair colour, eye colour, height, "
+                "build, skin tone, distinguishing marks), species, gender, approximate age, "
+                "core personality traits, and background that will not change between scenes. "
+                "Do NOT include location, emotional state, current goals, or anything situational. "
+                "Return plain text only, no JSON."
+            ),
+        },
+        {
+            "role": "user",
+            "content": f"Character: {name}\nFull description: {full_description}",
+        },
+    ]
+    try:
+        return chat_completion(messages).strip()
+    except Exception:
+        return full_description  # last resort: use full description as-is
 
 
 class NarrativeOutputAgent(BaseAgent):
@@ -103,10 +133,11 @@ class NarrativeOutputAgent(BaseAgent):
                         prompt="",
                         output="",
                         metadata={
-                            "event": "narrative_correction_warning",
+                            "event": "narrative_correction_applied",
                             "character_or_field": correction.get("character_or_field", "unknown"),
-                            "scene_history_value": correction.get("scene_history_value", ""),
                             "draft_value": correction.get("draft_value", ""),
+                            "scene_history_value": correction.get("scene_history_value", ""),
+                            "chosen_value": correction.get("chosen_value", ""),
                             "note": correction.get("note", ""),
                         },
                     )
@@ -178,13 +209,12 @@ class NarrativeOutputAgent(BaseAgent):
                     )
                 else:
                     # New character first appearing this scene.
-                    # Use new_character_permanent for description so it contains ONLY
-                    # permanent attributes — not the dynamic state_summary.
+                    # Use new_character_permanent for description so it contains ONLY permanent attributes.
                     permanent_attrs = new_character_permanent.get(name, "")
                     if not permanent_attrs:
-                        # Fallback: CharacterAgent did not provide permanent attrs.
-                        # Log a warning and degrade gracefully — state_summary becomes description.
-                        permanent_attrs = state_summary
+                        # CharacterAgent did not provide permanent attrs (LLM non-compliance).
+                        # Run a targeted mini-call to extract them rather than silently degrading.
+                        permanent_attrs = _extract_permanent_attrs_via_llm(name, state_summary)
                         try:
                             log_agent_call(
                                 novel_id=novel_id,
@@ -194,12 +224,12 @@ class NarrativeOutputAgent(BaseAgent):
                                 prompt="",
                                 output="",
                                 metadata={
-                                    "event": "missing_permanent_attrs",
+                                    "event": "permanent_attrs_extracted_via_fallback",
                                     "character": name,
+                                    "extracted": permanent_attrs,
                                     "detail": (
                                         f"new_character_permanent not provided for '{name}'; "
-                                        f"fell back to state_summary as description. "
-                                        f"Permanent attributes may be contaminated with dynamic state."
+                                        f"ran mini-call to extract permanent attributes."
                                     ),
                                 },
                             )
