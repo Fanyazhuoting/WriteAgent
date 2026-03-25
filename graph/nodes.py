@@ -43,7 +43,7 @@ def node_consistency(state: GraphState) -> dict:
 
 def node_negotiation(state: GraphState) -> dict:
     update = run_negotiation(state)
-    update["phase"] = "narrative" if update.get("negotiation_resolved") else "human_review"
+    update["phase"] = "narrative"
     return update
 
 
@@ -51,12 +51,3 @@ def node_narrative(state: GraphState) -> dict:
     update = _narrative.run(state)
     update["phase"] = "done"
     return update
-
-
-def node_human_review(state: GraphState) -> dict:
-    """
-    Conflict escalation point: negotiation could not resolve contradictions automatically.
-    Marks awaiting_human=False so the graph proceeds to narrative with the best available
-    draft — the unresolved contradictions are preserved in negotiation_log for review.
-    """
-    return {"phase": "human_review", "awaiting_human": False}

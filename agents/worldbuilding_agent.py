@@ -43,12 +43,8 @@ class WorldbuildingAgent(BaseAgent):
         content, _ = self._call_llm(messages, novel_id, scene_number)
         result = self._parse_json(content)
 
-        veto_active = bool(result.get("veto", False))
-        corrected_draft = result.get("corrected_draft") or draft
-
-        update: dict = {
+        return {
             "world_rules_context": result.get("world_rules_context", ""),
-            "veto_active": veto_active,
             "agent_messages": [{
                 "agent_id": self.agent_id,
                 "content": content,
@@ -57,16 +53,3 @@ class WorldbuildingAgent(BaseAgent):
                 "token_count": 0,
             }],
         }
-
-        if veto_active and corrected_draft:
-            update["raw_scene_draft"] = corrected_draft
-            update["negotiation_log"] = [{
-                "round_number": 0,
-                "participants": [self.agent_id],
-                "proposal": corrected_draft,
-                "counter_proposal": None,
-                "resolution": f"VETO: {result.get('veto_reason', '')}",
-                "resolved": True,
-            }]
-
-        return update

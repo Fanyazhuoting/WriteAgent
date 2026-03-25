@@ -93,7 +93,7 @@ def generate_scene(novel_id: str, scene_brief: str, prose_so_far: str):
                 f"Scene {data['scene_number']} done | "
                 f"Contradictions: {data['contradictions_found']} | "
                 f"Negotiations: {data['negotiation_rounds']} | "
-                f"Veto: {data['veto_triggered']}"
+                f"Resolved: {data.get('negotiation_resolved', False)}"
             )
             separator = f"\n\n{'─' * 60}\n\n"
             new_prose = prose_so_far + separator + prose if prose_so_far else prose

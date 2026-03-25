@@ -35,12 +35,13 @@ def upsert_entity(doc: EntityDoc) -> None:
     col = get_collection("world_entities")
     col.upsert(
         ids=[doc.entity_id],
-        documents=[doc.description],
+        documents=[doc.description],   # only permanent description is embedded
         metadatas=[{
             "entity_id": doc.entity_id,
             "entity_type": doc.entity_type,
             "name": doc.name,
             "novel_id": doc.novel_id,
+            "current_state": doc.current_state,
             "last_updated_scene": doc.last_updated_scene,
             "version": doc.version,
             "tags": doc.tags,
@@ -61,6 +62,7 @@ def get_entity(entity_id: str) -> EntityDoc | None:
         name=m["name"],
         novel_id=m["novel_id"],
         description=result["documents"][0],
+        current_state=m.get("current_state", ""),
         last_updated_scene=int(m["last_updated_scene"]),
         version=int(m["version"]),
         tags=m.get("tags", ""),
@@ -98,6 +100,7 @@ def query_entities(
             name=meta["name"],
             novel_id=meta["novel_id"],
             description=doc_text,
+            current_state=meta.get("current_state", ""),
             last_updated_scene=int(meta["last_updated_scene"]),
             version=int(meta["version"]),
             tags=meta.get("tags", ""),
@@ -122,6 +125,7 @@ def list_entities(novel_id: str, entity_type: str | None = None) -> list[EntityD
             name=meta["name"],
             novel_id=meta["novel_id"],
             description=doc_text,
+            current_state=meta.get("current_state", ""),
             last_updated_scene=int(meta["last_updated_scene"]),
             version=int(meta["version"]),
             tags=meta.get("tags", ""),

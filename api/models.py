@@ -50,7 +50,6 @@ class NovelStatus(BaseModel):
     novel_id: str
     phase: str
     current_scene_number: int
-    awaiting_human: bool
     error: Optional[str]
 
 
@@ -60,7 +59,7 @@ class SceneResult(BaseModel):
     final_prose: str
     contradictions_found: int
     negotiation_rounds: int
-    veto_triggered: bool
+    negotiation_resolved: bool
 
 
 class EntityResponse(BaseModel):
@@ -89,9 +88,10 @@ class AuditEntry(BaseModel):
 
 
 class NegotiationEntry(BaseModel):
+    scene_number: int = 0
     round_number: int
-    participants: list[str]
-    proposal: str
+    participants: list[str] = []
+    proposal: str = ""
     contradictions: list[dict] = []
     resolution: Optional[str]
     resolved: bool

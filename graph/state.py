@@ -20,7 +20,9 @@ class GraphState(TypedDict):
 
     # Agent outputs (current round)
     world_rules_context: str
-    character_states: dict[str, str]                        # {char_name: state_summary}
+    character_states: dict[str, str]                        # {char_name: dynamic_state_summary}
+    character_profiles_snapshot: dict[str, dict]            # {char_name: full EntityDoc fields} — for final DB commit
+    new_character_permanent: dict[str, str]                 # {char_name: permanent_attrs_only} — new chars first appearing this scene
     plot_events: Annotated[list[str], operator.add]         # append-only
     raw_scene_draft: str
 
@@ -31,7 +33,6 @@ class GraphState(TypedDict):
     # Consistency & negotiation
     contradictions: list[dict]
     has_contradiction: bool
-    veto_active: bool
     negotiation_log: Annotated[list[dict], operator.add]    # append-only
     negotiation_round: int
     negotiation_resolved: bool
@@ -40,9 +41,8 @@ class GraphState(TypedDict):
     final_prose: str
     prose_chunks: Annotated[list[str], operator.add]        # append-only
 
-    # Human-in-the-loop
+    # Human-in-the-loop (input injection only)
     human_injection: Optional[str]
-    awaiting_human: bool
 
     # Audit
     agent_messages: Annotated[list[dict], operator.add]     # append-only
@@ -51,7 +51,7 @@ class GraphState(TypedDict):
     error: Optional[str]
     phase: Literal[
         "worldbuilding", "character", "plot", "consistency",
-        "negotiation", "narrative", "human_review", "done"
+        "negotiation", "narrative", "done"
     ]
 
 
@@ -73,20 +73,20 @@ def initial_state(
         scene_history=[],
         world_rules_context="",
         character_states={},
+        character_profiles_snapshot={},
+        new_character_permanent={},
         plot_events=[],
         raw_scene_draft="",
         retrieved_entities=[],
         sliding_window_context="",
         contradictions=[],
         has_contradiction=False,
-        veto_active=False,
         negotiation_log=[],
         negotiation_round=0,
         negotiation_resolved=False,
         final_prose="",
         prose_chunks=[],
         human_injection=None,
-        awaiting_human=False,
         agent_messages=[],
         error=None,
         phase="worldbuilding",

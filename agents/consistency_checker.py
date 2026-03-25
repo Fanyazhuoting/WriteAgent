@@ -4,8 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from .base_agent import BaseAgent
-from memory.entity_store import get_world_rules
-from memory.retrieval import get_entity_snapshot
+from memory.entity_store import list_entities, get_world_rules
 from prompts.registry import registry
 
 
@@ -16,12 +15,21 @@ class ConsistencyChecker(BaseAgent):
     def run(self, state: dict) -> dict:
         novel_id = state["novel_id"]
         scene_number = state["current_scene_number"]
-        scene_brief = state.get("current_scene_brief", "")
         draft = state.get("raw_scene_draft", "")
         scene_history = state.get("scene_history", [])
 
-        # Build entity snapshot from ChromaDB
-        entity_snapshot = get_entity_snapshot(novel_id, scene_brief, k=12)
+        # Get ALL entities — full list ensures no entity is missed
+        entities = list_entities(novel_id)
+        if entities:
+            entity_lines = []
+            for e in entities:
+                line = f"[{e.entity_type.upper()}] {e.name}\n  PERMANENT: {e.description}"
+                if e.current_state:
+                    line += f"\n  LAST STATE (context only, may change naturally): {e.current_state}"
+                entity_lines.append(line)
+            entity_snapshot = "\n\n".join(entity_lines)
+        else:
+            entity_snapshot = "(no entities stored yet)"
 
         # World rules for prompt
         rules = get_world_rules(novel_id)
@@ -48,14 +56,11 @@ class ConsistencyChecker(BaseAgent):
         has_contradiction = bool(result.get("has_contradiction", False))
         contradictions = result.get("contradictions", [])
 
-        # Always record this check as round 0 in negotiation_log so the
-        # Conflicts tab shows every check — not only ones that escalate.
+        # Round 0: initial detection entry
         detection_entry = {
+            "scene_number": scene_number,
             "round_number": 0,
-            "participants": ["consistency_checker"],
-            "proposal": f"Scene {scene_number} consistency check",
             "contradictions": contradictions,
-            "counter_proposal": None,
             "resolution": "contradictions_found" if has_contradiction else "clean",
             "resolved": not has_contradiction,
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -73,10 +78,3 @@ class ConsistencyChecker(BaseAgent):
                 "token_count": 0,
             }],
         }
-
-    def recheck(self, draft: str, state: dict) -> bool:
-        """Re-run check on a revised draft. Returns True if clean."""
-        temp_state = dict(state)
-        temp_state["raw_scene_draft"] = draft
-        result = self.run(temp_state)
-        return not result.get("has_contradiction", False)
