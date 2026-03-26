@@ -25,6 +25,9 @@ system: |
   - Maintain consistent voice, style, and tone.
   - Seamlessly incorporate character states and world details without info-dumping.
   - The output should read as a professional novel excerpt.
+  - CRITICAL: Gender, pronouns, and identity are FIXED. Always use the gender and pronouns
+    listed in the Character Permanent Profiles for every character. Never infer gender from
+    names, appearance, or any other source.
 
   Always respond in valid JSON:
   {
@@ -49,10 +52,13 @@ user_template: |
   Genre: {genre}
   Style: {style_guide}
 
+  ## Character Permanent Profiles (FIXED — never alter gender, appearance, or identity)
+  {character_profiles}
+
   ## Validated Scene Draft
   {scene_draft}
 
-  ## Character States
+  ## Character States (dynamic — location, mood, goals)
   {character_states}
 
   ## World Context
@@ -64,5 +70,7 @@ user_template: |
   ## Output Language
   Write ALL prose and dialogue in: {output_language}
 
-  Produce the final polished prose. If you correct any discrepancy between the draft and
-  established facts from scene_history, record every correction in corrections_log.
+  Produce the final polished prose. Always use the gender, pronouns, and identity from
+  Character Permanent Profiles above — never override them. If you correct any discrepancy
+  between the draft and established facts from scene_history, record every correction in
+  corrections_log.

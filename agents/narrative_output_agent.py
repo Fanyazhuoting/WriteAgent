@@ -63,12 +63,37 @@ class NarrativeOutputAgent(BaseAgent):
             f"- {name}: {summary}" for name, summary in character_states.items()
         ) or "(none)"
 
+        # Build permanent profile summary so the LLM always knows character gender/identity.
+        # Priority: core_attributes (structured) > raw description text.
+        profile_lines: list[str] = []
+        for name, profile in character_profiles_snapshot.items():
+            core_attrs: dict = profile.get("core_attributes") or {}
+            desc: str = profile.get("description") or ""
+            # Build a concise one-liner of permanent facts, leading with gender if present
+            parts: list[str] = []
+            if core_attrs.get("gender"):
+                parts.append(f"gender={core_attrs['gender']}")
+            for key in ("species", "hair_color", "eye_color", "height"):
+                if core_attrs.get(key):
+                    parts.append(f"{key}={core_attrs[key]}")
+            attr_str = "; ".join(parts)
+            if attr_str:
+                profile_lines.append(f"- {name}: [{attr_str}] {desc}".strip())
+            elif desc:
+                profile_lines.append(f"- {name}: {desc}")
+        # Also include new characters appearing for the first time
+        for name, perm_desc in new_character_permanent.items():
+            if name not in character_profiles_snapshot:
+                profile_lines.append(f"- {name} (new): {perm_desc}")
+        character_profiles_str = "\n".join(profile_lines) or "(none)"
+
         prompt_data = registry.get(self.prompt_name)
         user_msg = prompt_data["user_template"].format(
             genre=genre,
             style_guide=style_guide,
             output_language=output_language,
             scene_draft=draft,
+            character_profiles=character_profiles_str,
             character_states=char_summary,
             world_rules_context=world_rules_context or "(none)",
             scene_history="\n\n".join(scene_history[-2:]) or "(none)",
