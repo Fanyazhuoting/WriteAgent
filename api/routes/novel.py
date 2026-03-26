@@ -18,6 +18,7 @@ from graph.state import initial_state
 from graph.graph_builder import novel_graph
 from memory.entity_store import upsert_entity, upsert_world_rule
 from memory.schemas import EntityDoc, WorldRuleDoc
+from memory.attribute_extractor import extract_core_attributes, extract_extended_attributes
 from guardrails.input_sanitizer import sanitize
 from guardrails.content_filter import filter_output
 
@@ -85,11 +86,19 @@ def start_novel(
 
     try:
         for char in body.initial_characters:
+            char_name = char.get("name", "Unknown")
+            char_desc = char.get("description", char_name)
+            # Extract structured permanent attributes at creation time so
+            # ConsistencyChecker can use them for deterministic pre-scanning.
+            core_attrs = extract_core_attributes(char_desc)
+            ext_attrs = extract_extended_attributes(body.genre, char_name, char_desc, core_attrs)
             upsert_entity(EntityDoc(
                 entity_type="character",
-                name=char.get("name", "Unknown"),
+                name=char_name,
                 novel_id=novel_id,
-                description=char.get("description", char.get("name", "Unknown")),
+                description=char_desc,
+                core_attributes=core_attrs,
+                extended_attributes=ext_attrs,
             ))
 
         # Normalise severity: accept "hard" → stored as "hard" (now valid in schema)

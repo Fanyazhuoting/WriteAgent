@@ -38,12 +38,16 @@ class CharacterAgent(BaseAgent):
                 "entity_type": c.entity_type,
                 "name": c.name,
                 "novel_id": c.novel_id,
-                "description": c.description,   # permanent attributes — never overwritten here
+                "description": c.description,        # permanent — never overwritten here
                 "current_state": c.current_state,
                 "version": c.version,
                 "last_updated_scene": c.last_updated_scene,
                 "tags": c.tags,
                 "is_active": c.is_active,
+                # Carry structured attribute dicts through to NarrativeOutputAgent
+                # so they are preserved on the upsert that follows scene finalisation.
+                "core_attributes": c.core_attributes,
+                "extended_attributes": c.extended_attributes,
             }
             for c in characters
         }
