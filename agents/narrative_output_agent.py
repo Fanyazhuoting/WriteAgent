@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from .base_agent import BaseAgent
 from memory.entity_store import archive_scene, upsert_entity, query_entities, list_entities
 from memory.schemas import EntityDoc, SceneArchiveDoc
+from memory.attribute_extractor import extract_core_attributes, extract_extended_attributes
 from utils.token_counter import count_tokens
 from utils.audit_logger import log_agent_call
 from utils.llm_client import chat_completion
@@ -62,12 +63,37 @@ class NarrativeOutputAgent(BaseAgent):
             f"- {name}: {summary}" for name, summary in character_states.items()
         ) or "(none)"
 
+        # Build permanent profile summary so the LLM always knows character gender/identity.
+        # Priority: core_attributes (structured) > raw description text.
+        profile_lines: list[str] = []
+        for name, profile in character_profiles_snapshot.items():
+            core_attrs: dict = profile.get("core_attributes") or {}
+            desc: str = profile.get("description") or ""
+            # Build a concise one-liner of permanent facts, leading with gender if present
+            parts: list[str] = []
+            if core_attrs.get("gender"):
+                parts.append(f"gender={core_attrs['gender']}")
+            for key in ("species", "hair_color", "eye_color", "height"):
+                if core_attrs.get(key):
+                    parts.append(f"{key}={core_attrs[key]}")
+            attr_str = "; ".join(parts)
+            if attr_str:
+                profile_lines.append(f"- {name}: [{attr_str}] {desc}".strip())
+            elif desc:
+                profile_lines.append(f"- {name}: {desc}")
+        # Also include new characters appearing for the first time
+        for name, perm_desc in new_character_permanent.items():
+            if name not in character_profiles_snapshot:
+                profile_lines.append(f"- {name} (new): {perm_desc}")
+        character_profiles_str = "\n".join(profile_lines) or "(none)"
+
         prompt_data = registry.get(self.prompt_name)
         user_msg = prompt_data["user_template"].format(
             genre=genre,
             style_guide=style_guide,
             output_language=output_language,
             scene_draft=draft,
+            character_profiles=character_profiles_str,
             character_states=char_summary,
             world_rules_context=world_rules_context or "(none)",
             scene_history="\n\n".join(scene_history[-2:]) or "(none)",
@@ -193,19 +219,25 @@ class NarrativeOutputAgent(BaseAgent):
         for name, state_summary in character_states.items():
             try:
                 if name in character_profiles_snapshot:
-                    # Existing character: preserve permanent description, update dynamic state
+                    # Existing character: preserve permanent description and structured
+                    # attribute dicts, update only the dynamic current_state.
                     profile = character_profiles_snapshot[name]
                     entity = EntityDoc(
                         entity_id=profile["entity_id"],
                         entity_type=profile["entity_type"],
                         name=profile["name"],
                         novel_id=profile["novel_id"],
-                        description=profile["description"],   # permanent — never changed here
-                        current_state=state_summary,          # dynamic state updated
+                        description=profile["description"],          # permanent — never changed here
+                        current_state=state_summary,                 # dynamic state updated
                         last_updated_scene=scene_number,
                         version=profile["version"] + 1,
                         tags=profile.get("tags", ""),
                         is_active=profile.get("is_active", True),
+                        # Pass through structured attrs so upsert_entity preserves them
+                        # (upsert_entity itself also guards against overwriting non-empty dicts,
+                        # but being explicit here makes the intent clear).
+                        core_attributes=profile.get("core_attributes", {}),
+                        extended_attributes=profile.get("extended_attributes", {}),
                     )
                 else:
                     # New character first appearing this scene.
@@ -236,6 +268,11 @@ class NarrativeOutputAgent(BaseAgent):
                         except Exception:
                             pass
 
+                    # Extract structured attributes from the permanent description so
+                    # ConsistencyChecker can use them from the next scene onward.
+                    core_attrs = extract_core_attributes(permanent_attrs)
+                    ext_attrs = extract_extended_attributes(genre, name, permanent_attrs, core_attrs)
+
                     entity = EntityDoc(
                         entity_type="character",
                         name=name,
@@ -243,6 +280,8 @@ class NarrativeOutputAgent(BaseAgent):
                         description=permanent_attrs,   # permanent only — embedded for semantic search
                         current_state=state_summary,   # dynamic state
                         last_updated_scene=scene_number,
+                        core_attributes=core_attrs,
+                        extended_attributes=ext_attrs,
                     )
                 upsert_entity(entity)
             except Exception:

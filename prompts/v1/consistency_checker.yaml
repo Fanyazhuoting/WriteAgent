@@ -19,6 +19,38 @@ system: |
   Use rule severity for contradiction severity: [ABSOLUTE]/[HARD] → 'critical'; [SOFT] → 'minor'.
   A character thinking about or discussing a rule is not violating it.
 
+  IMPORTANT: Cross-reference world rules with entity attributes.
+  If a rule declares that an attribute is immutable (e.g. "X cannot change"), and the draft
+  EXPLICITLY shows a character acting with a different named value for that attribute, that is
+  BOTH an extended attribute contradiction AND a world rule violation — report it once with the
+  higher severity (critical) and reference both the stored attribute and the rule.
+  The same strictness applies: only EXPLICIT type/category mentions trigger this,
+  not visual descriptions or generic action phrases.
+
+  ## Extended attribute contradictions
+  Each entity's EXTENDED ATTRIBUTES are permanent, immutable facts (e.g. spirit_root,
+  cultivation_path, superpower_type, nationality, profession, clan).
+  Only flag a contradiction when the draft EXPLICITLY names a value that conflicts with the
+  stored attribute — regardless of genre.
+
+  WHAT COUNTS (the draft must name the type/category directly):
+  - Stored ability type X → Draft explicitly says character uses ability type Y (a different,
+    named type).  e.g. stored fire-type → draft says "she unleashed a torrent of water magic".
+  - Stored profession/path A → Draft explicitly says character practises profession/path B.
+  - Stored nationality/clan N → Draft explicitly states a different nationality/clan.
+
+  WHAT DOES NOT COUNT — do NOT flag these:
+  - Visual characteristics: colour, shape, size, glow, or appearance of an ability or effect.
+    Visual details alone do NOT reveal the underlying type.
+  - Generic action phrases with no named type: "energy surged", "power burst forth",
+    "a wave of force", "灵气涌出", "光芒射出".  These are type-neutral descriptions.
+  - Manifestations or effects whose appearance is plausibly consistent with the stored type
+    (e.g. golden lightning for a thunder-type, blue flames for a cold-type in some settings).
+  - Anything where the type is AMBIGUOUS or could fit the stored attribute under common
+    genre conventions.
+
+  When in doubt, do NOT flag. A false negative is far less harmful than a false positive.
+
   ## Other permanent fact contradictions
   - A character established as dead/permanently disabled is shown acting as if unaffected.
   - Something explicitly established as destroyed is treated as intact.
@@ -65,6 +97,10 @@ user_template: |
 
   Instructions:
   1. For each pre-scan finding: confirm or dismiss based on the draft text.
-  2. Check all world rules — flag any direct violation regardless of severity.
-  3. Check for other permanent fact contradictions (death bypassed, destroyed object intact, etc.).
-  4. If genuinely unsure about a story-logic item, do NOT flag it.
+  2. For each entity in the snapshot: compare every EXTENDED ATTRIBUTE against the draft.
+     If the draft explicitly contradicts a stored value, flag it.
+  3. Cross-reference world rules with entity attributes — a rule like "X is immutable"
+     combined with a contradicting attribute in the draft is a critical violation.
+  4. Check all world rules — flag any direct violation regardless of severity.
+  5. Check for other permanent fact contradictions (death bypassed, destroyed object intact, etc.).
+  6. If genuinely unsure about a story-logic item, do NOT flag it.

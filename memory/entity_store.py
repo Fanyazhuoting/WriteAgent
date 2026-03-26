@@ -33,6 +33,17 @@ def _safe_n_results(col, n: int) -> int:
 
 def upsert_entity(doc: EntityDoc) -> None:
     col = get_collection("world_entities")
+
+    # If the entity already exists, preserve its structured attribute dicts so
+    # they are never overwritten after the initial creation write.
+    existing = get_entity(doc.entity_id)
+    core_attrs = doc.core_attributes if doc.core_attributes else (
+        existing.core_attributes if existing else {}
+    )
+    ext_attrs = doc.extended_attributes if doc.extended_attributes else (
+        existing.extended_attributes if existing else {}
+    )
+
     col.upsert(
         ids=[doc.entity_id],
         documents=[doc.description],   # only permanent description is embedded
@@ -46,7 +57,36 @@ def upsert_entity(doc: EntityDoc) -> None:
             "version": doc.version,
             "tags": doc.tags,
             "is_active": str(doc.is_active),
+            # JSON-serialised dicts — ChromaDB metadata only supports scalar values
+            "core_attributes": json.dumps(core_attrs, ensure_ascii=False),
+            "extended_attributes": json.dumps(ext_attrs, ensure_ascii=False),
         }],
+    )
+
+
+def _entity_from_meta(doc_text: str, m: dict) -> EntityDoc:
+    """Deserialise a ChromaDB row into an EntityDoc, including the JSON-encoded attribute dicts."""
+    def _load_attrs(raw: str) -> dict:
+        if not raw:
+            return {}
+        try:
+            return json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            return {}
+
+    return EntityDoc(
+        entity_id=m["entity_id"],
+        entity_type=m["entity_type"],
+        name=m["name"],
+        novel_id=m["novel_id"],
+        description=doc_text,
+        current_state=m.get("current_state", ""),
+        last_updated_scene=int(m["last_updated_scene"]),
+        version=int(m["version"]),
+        tags=m.get("tags", ""),
+        is_active=m["is_active"] == "True",
+        core_attributes=_load_attrs(m.get("core_attributes", "")),
+        extended_attributes=_load_attrs(m.get("extended_attributes", "")),
     )
 
 
@@ -55,19 +95,7 @@ def get_entity(entity_id: str) -> EntityDoc | None:
     result = col.get(ids=[entity_id], include=["documents", "metadatas"])
     if not result["ids"]:
         return None
-    m = result["metadatas"][0]
-    return EntityDoc(
-        entity_id=m["entity_id"],
-        entity_type=m["entity_type"],
-        name=m["name"],
-        novel_id=m["novel_id"],
-        description=result["documents"][0],
-        current_state=m.get("current_state", ""),
-        last_updated_scene=int(m["last_updated_scene"]),
-        version=int(m["version"]),
-        tags=m.get("tags", ""),
-        is_active=m["is_active"] == "True",
-    )
+    return _entity_from_meta(result["documents"][0], result["metadatas"][0])
 
 
 def query_entities(
@@ -94,18 +122,7 @@ def query_entities(
     )
     docs = []
     for doc_text, meta in zip(result["documents"][0], result["metadatas"][0]):
-        docs.append(EntityDoc(
-            entity_id=meta["entity_id"],
-            entity_type=meta["entity_type"],
-            name=meta["name"],
-            novel_id=meta["novel_id"],
-            description=doc_text,
-            current_state=meta.get("current_state", ""),
-            last_updated_scene=int(meta["last_updated_scene"]),
-            version=int(meta["version"]),
-            tags=meta.get("tags", ""),
-            is_active=meta["is_active"] == "True",
-        ))
+        docs.append(_entity_from_meta(doc_text, meta))
     return docs
 
 
@@ -119,18 +136,7 @@ def list_entities(novel_id: str, entity_type: str | None = None) -> list[EntityD
     result = col.get(where=where, include=["documents", "metadatas"])
     docs = []
     for doc_text, meta in zip(result["documents"], result["metadatas"]):
-        docs.append(EntityDoc(
-            entity_id=meta["entity_id"],
-            entity_type=meta["entity_type"],
-            name=meta["name"],
-            novel_id=meta["novel_id"],
-            description=doc_text,
-            current_state=meta.get("current_state", ""),
-            last_updated_scene=int(meta["last_updated_scene"]),
-            version=int(meta["version"]),
-            tags=meta.get("tags", ""),
-            is_active=meta["is_active"] == "True",
-        ))
+        docs.append(_entity_from_meta(doc_text, meta))
     return docs
 
 

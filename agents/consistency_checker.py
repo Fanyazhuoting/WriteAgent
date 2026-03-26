@@ -1,13 +1,17 @@
 """ConsistencyChecker — detects contradictions and initiates negotiation."""
 from __future__ import annotations
 
-import re
 from datetime import datetime, timezone
 from typing import NamedTuple
 
 from .base_agent import BaseAgent
 from memory.entity_store import list_entities, get_world_rules
 from memory.schemas import EntityDoc
+from memory.attribute_extractor import (
+    PRESCAN_PATTERNS,
+    _find_attributed_value,
+    values_conflict,
+)
 from prompts.registry import registry
 
 
@@ -22,87 +26,57 @@ class _AttributeHint(NamedTuple):
     draft_value: str
 
 
-# Colour tokens for ZH and EN — extend this list as needed
-_COLOURS_ZH = (
-    "金色?|黑色?|棕色?|红色?|白色?|银色?|蓝色?|绿色?|紫色?|橙色?|粉色?|灰色?|褐色?|栗色?"
-)
-_COLOURS_EN = (
-    r"golden|blond(?:e)?|black|brown|red|auburn|white|silver|"
-    r"blue|green|purple|orange|pink|gr[ae]y|platinum"
-)
-
-# Match <colour> + optional connector + hair noun
-_HAIR_ZH = re.compile(
-    rf"({_COLOURS_ZH})[的]?(?:头发|发丝|发色|发型|长发|短发|卷发|直发)",
-    re.IGNORECASE,
-)
-_HAIR_EN = re.compile(
-    rf"\b({_COLOURS_EN})\b[\s-]*(?:hair|locks|tresses|curls|waves)",
-    re.IGNORECASE,
-)
-
-# Eye colour
-_EYE_ZH = re.compile(
-    rf"({_COLOURS_ZH})[的]?(?:眼睛|眼眸|眼珠|眼神|双眸)",
-    re.IGNORECASE,
-)
-_EYE_EN = re.compile(
-    rf"\b({_COLOURS_EN})\b[\s-]*eyes?\b",
-    re.IGNORECASE,
-)
-
-
-def _first_match(patterns: list[re.Pattern], text: str) -> str | None:
-    for pat in patterns:
-        m = pat.search(text)
-        if m:
-            return m.group(1)
-    return None
-
-
 def _pre_check_physical_attributes(
     entities: list[EntityDoc], draft: str
 ) -> list[_AttributeHint]:
     """
-    Code-based scan for obvious physical attribute contradictions.
+    Deterministic scan for physical attribute contradictions using structured
+    core_attributes stored on each EntityDoc.
 
-    Only flags when:
-    1. The character's name appears in the draft (character is present in the scene).
-    2. The permanent description contains a known physical descriptor.
-    3. The draft contains a DIFFERENT value for the same descriptor.
+    Algorithm per character
+    -----------------------
+    1. Skip if entity is not a character or name is absent from draft.
+    2. Skip if core_attributes is empty (entity pre-dates this feature or has
+       no extractable attributes — LLM layer handles verification in that case).
+    3. For every key in core_attributes that belongs to PRESCAN_PATTERNS:
+       a. Extract a text window around each mention of the character's name in
+          the draft (avoids cross-character colour mis-attribution).
+       b. Search the window text for the attribute using the registered pattern.
+       c. If a different value is found, emit a hint.
 
-    Returns a list of hints to be forwarded to the LLM for confirmation.
-    Absence of an attribute in the draft is deliberately ignored (absence ≠ contradiction).
+    Only PRESCAN_PATTERNS keys are code-checked; extended_attributes keys are
+    left entirely to the LLM layer which receives them in structured form.
+
+    Absence of an attribute in the draft is not flagged (absence ≠ contradiction).
     """
     hints: list[_AttributeHint] = []
+
     for e in entities:
         if e.entity_type != "character":
             continue
         if e.name not in draft:
-            continue  # character not mentioned in draft — skip
+            continue
+        if not e.core_attributes:
+            # No structured attributes yet — LLM handles consistency for this entity
+            continue
 
-        # Hair colour
-        stored_hair = _first_match([_HAIR_ZH, _HAIR_EN], e.description)
-        if stored_hair:
-            draft_hair = _first_match([_HAIR_ZH, _HAIR_EN], draft)
-            if draft_hair and draft_hair.rstrip("色") != stored_hair.rstrip("色"):
+        for attr_key, stored_value in e.core_attributes.items():
+            if attr_key not in PRESCAN_PATTERNS:
+                # Non-colour or multi-value attribute — skip code scan, LLM verifies
+                continue
+
+            patterns = PRESCAN_PATTERNS[attr_key]
+            # Use possessive-proximity search: only accept a colour match if
+            # the character's name appears within PROXIMITY chars to the LEFT
+            # of the match.  This eliminates cross-character false positives
+            # regardless of sentence structure.
+            draft_value = _find_attributed_value(e.name, patterns, draft)
+            if draft_value and values_conflict(stored_value, draft_value):
                 hints.append(_AttributeHint(
                     character=e.name,
-                    attribute="hair_color",
-                    stored_value=stored_hair,
-                    draft_value=draft_hair,
-                ))
-
-        # Eye colour
-        stored_eye = _first_match([_EYE_ZH, _EYE_EN], e.description)
-        if stored_eye:
-            draft_eye = _first_match([_EYE_ZH, _EYE_EN], draft)
-            if draft_eye and draft_eye.rstrip("色") != stored_eye.rstrip("色"):
-                hints.append(_AttributeHint(
-                    character=e.name,
-                    attribute="eye_color",
-                    stored_value=stored_eye,
-                    draft_value=draft_eye,
+                    attribute=attr_key,
+                    stored_value=stored_value,
+                    draft_value=draft_value,
                 ))
 
     return hints
@@ -142,9 +116,25 @@ class ConsistencyChecker(BaseAgent):
         if entities:
             entity_lines = []
             for e in entities:
-                line = f"[{e.entity_type.upper()}] {e.name}\n  PERMANENT: {e.description}"
+                line = f"[{e.entity_type.upper()}] {e.name}"
+                # Structured attributes are listed first so the LLM can spot
+                # contradictions without having to parse free-form prose.
+                if e.core_attributes:
+                    attrs = "\n    ".join(
+                        f"{k}: {v}" for k, v in e.core_attributes.items()
+                    )
+                    line += f"\n  CORE ATTRIBUTES:\n    {attrs}"
+                if e.extended_attributes:
+                    attrs = "\n    ".join(
+                        f"{k}: {v}" for k, v in e.extended_attributes.items()
+                    )
+                    line += f"\n  EXTENDED ATTRIBUTES:\n    {attrs}"
+                line += f"\n  PERMANENT DESCRIPTION: {e.description}"
                 if e.current_state:
-                    line += f"\n  LAST STATE (context only, may change naturally): {e.current_state}"
+                    line += (
+                        f"\n  LAST STATE (context only, may change naturally): "
+                        f"{e.current_state}"
+                    )
                 entity_lines.append(line)
             entity_snapshot = "\n\n".join(entity_lines)
         else:

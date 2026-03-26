@@ -21,6 +21,14 @@ class EntityDoc(BaseModel):
     version: int = 1
     tags: str = ""            # comma-separated for Chroma metadata filtering
     is_active: bool = True
+    # Structured permanent attributes — split into two layers:
+    # core_attributes: code-extracted universal attributes (hair_color, eye_color, skin_tone,
+    #                  gender, species, height, notable_marks). Written once at entity creation,
+    #                  never overwritten on subsequent upserts.
+    # extended_attributes: LLM-extracted genre-specific attributes (spirit_root, cultivation_path,
+    #                      nationality, etc.). Also written once and never overwritten.
+    core_attributes: dict = Field(default_factory=dict)
+    extended_attributes: dict = Field(default_factory=dict)
 
 
 class SceneArchiveDoc(BaseModel):
