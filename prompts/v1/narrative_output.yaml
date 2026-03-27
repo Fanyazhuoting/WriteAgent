@@ -42,7 +42,12 @@ system: |
         "chosen_value": "<what was written in the final prose>",
         "note": "<one-sentence explanation>"
       }
-    ]
+    ],
+    "reasoning": {
+      "style_choices": ["<stylistic decision and why, e.g. 'used sparse prose to match established literary style'>"],
+      "corrections_applied": 0,
+      "coherence_notes": "<how this scene connects to prior scenes in terms of tone, character arc, or world details>"
+    }
   }
   `corrections_log` must be [] when no correction is made.
   `locations_mentioned` lists every distinct named place in the scene. Empty array if none.

@@ -44,6 +44,13 @@ class GraphState(TypedDict):
     # Human-in-the-loop (input injection only)
     human_injection: Optional[str]
 
+    # XAI: per-agent reasoning snapshots (populated by each agent from LLM output)
+    worldbuilding_reasoning: dict
+    character_reasoning: dict
+    plot_reasoning: dict
+    consistency_reasoning: dict
+    narrative_reasoning: dict
+
     # Audit
     agent_messages: Annotated[list[dict], operator.add]     # append-only
 
@@ -87,6 +94,11 @@ def initial_state(
         final_prose="",
         prose_chunks=[],
         human_injection=None,
+        worldbuilding_reasoning={},
+        character_reasoning={},
+        plot_reasoning={},
+        consistency_reasoning={},
+        narrative_reasoning={},
         agent_messages=[],
         error=None,
         phase="worldbuilding",

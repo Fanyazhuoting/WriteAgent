@@ -78,6 +78,7 @@ class CharacterAgent(BaseAgent):
             "character_states": character_states,
             "character_profiles_snapshot": character_profiles_snapshot,
             "new_character_permanent": new_character_permanent,
+            "character_reasoning": result.get("reasoning", {}),
             "agent_messages": [{
                 "agent_id": self.agent_id,
                 "content": content,

@@ -17,7 +17,13 @@ system: |
     "scene_draft": "<the scene prose>",
     "plot_events": ["<key event 1>", "<key event 2>"],
     "new_subplot": null,
-    "pacing_note": "<tension/rest/rising action/climax/etc>"
+    "pacing_note": "<tension/rest/rising action/climax/etc>",
+    "reasoning": {
+      "narrative_choices": ["<choice 1 and why, e.g. 'opened with sensory detail to ground reader before conflict'>"],
+      "pacing_rationale": "<why this pacing was chosen given prior scenes and the scene brief>",
+      "character_motivations": {"<name>": "<why this character acts this way in this scene>"},
+      "world_rules_respected": ["<any world rule that shaped the narrative>"]
+    }
   }
 
 user_template: |

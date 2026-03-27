@@ -142,7 +142,7 @@ function switchTab(name) {
 
   if (state.activeNovelId) {
     if (name === 'worldgraph') loadGraph();
-    if (name === 'conflicts')  loadConflicts();
+    if (name === 'process')    loadProcess();
     if (name === 'audit')      loadAudit();
   }
 }
@@ -270,7 +270,7 @@ function selectNovel(id) {
   setStatus('startStatus', '', '');
 
   if (state.activeTab === 'worldgraph') loadGraph();
-  if (state.activeTab === 'conflicts')  loadConflicts();
+  if (state.activeTab === 'process')    loadProcess();
   if (state.activeTab === 'audit')      loadAudit();
 }
 
@@ -284,8 +284,8 @@ function clearOtherTabs() {
   if (typeof gEl !== 'undefined' && gEl) gEl.selectAll('*').remove();
   $('focusCard').classList.add('hidden');
   $('graphEmpty').style.display = 'flex';
-  // Conflicts & Audit
-  $('conflictsTable').innerHTML = '<div class="empty-state">Select a novel to view negotiations.</div>';
+  // Process & Audit
+  $('xaiTimeline').innerHTML = '<div class="empty-state">Select a novel to view agent reasoning.</div>';
   $('auditTable').innerHTML     = '<div class="empty-state">Select a novel to view the audit trail.</div>';
 }
 
@@ -805,17 +805,17 @@ function showConflictBanner(contradictions, negotiationRounds) {
     `${contradictions} contradiction${contradictions !== 1 ? 's' : ''} found — ` +
     `agents negotiated for ${negotiationRounds} round${negotiationRounds !== 1 ? 's' : ''} ` +
     `without full resolution. The best available draft was used. ` +
-    `<button type="button" class="conflict-banner-link" id="conflictBannerLink">View in Conflicts tab →</button>`;
+    `<button type="button" class="conflict-banner-link" id="conflictBannerLink">View in Process tab →</button>`;
   banner.classList.remove('hidden');
   // Re-bind link (innerHTML replaced it)
   const link = $('conflictBannerLink');
-  if (link) link.addEventListener('click', () => switchTab('conflicts'));
+  if (link) link.addEventListener('click', () => switchTab('process'));
 }
 
 $('conflictBannerDismiss').addEventListener('click', () => {
   $('conflictBanner').classList.add('hidden');
 });
-$('conflictBannerLink').addEventListener('click', () => switchTab('conflicts'));
+$('conflictBannerLink').addEventListener('click', () => switchTab('process'));
 
 // ─── Copy & Download ──────────────────────────
 $('copyProseBtn').addEventListener('click', () => {
@@ -1055,73 +1055,324 @@ function formatContradictions(contradictions, fallbackProposal) {
   }).join('');
 }
 
-// ─── Format a single contradiction into a readable sentence ──────────────────
-function formatContradictionItem(c) {
-  const field      = c.field || '';
-  const stored     = esc(c.stored_value || '');
-  const inDraft    = esc(c.new_value   || '');
-  const sevColor   = c.severity === 'critical' ? '#ff4d6d' : '#f59e0b';
-  const sevLabel   = c.severity === 'critical' ? 'Critical' : 'Minor';
-  const sevTag     = `<span style="color:${sevColor};font-weight:700">[${sevLabel}]</span>`;
+// ─── Process Tab — XAI Decision Chain ────────────────────────────────────────
 
-  // Parse field into a human-readable subject
-  // Formats: "character.Name.attribute", "world_rule.ruleName", "continuity.topic"
+async function loadProcess() {
+  if (!state.activeNovelId) return;
+  const timeline = $('xaiTimeline');
+  timeline.innerHTML = '<div class="loading-row"><span class="spinner"></span>Loading…</div>';
+  try {
+    const resp = await fetch(`${API}/novel/${state.activeNovelId}/scene/process`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    if (!data || !data.steps || data.steps.length === 0) {
+      timeline.innerHTML = '<div class="empty-state">No process data yet — generate a scene first.</div>';
+      return;
+    }
+    timeline.innerHTML = buildXAITimeline(data);
+    timeline.querySelectorAll('.xai-card-header').forEach(hdr => {
+      hdr.addEventListener('click', () => hdr.closest('.xai-card').classList.toggle('open'));
+    });
+    // Show/hide negotiation panel
+    const neg = data.negotiation || {};
+    const negPanel = $('xaiNegPanel');
+    if (neg.rounds > 0) {
+      negPanel.style.display = '';
+      $('xaiNegSubtitle').textContent =
+        `${neg.rounds} round(s) — ${neg.resolved ? 'Resolved' : 'Unresolved'}`;
+      $('xaiNegContent').innerHTML = buildNegotiationPanel(neg);
+    } else {
+      negPanel.style.display = 'none';
+    }
+  } catch (err) {
+    $('xaiTimeline').innerHTML = `<div class="empty-state">Error: ${esc(err.message)}</div>`;
+  }
+}
+$('refreshProcessBtn').addEventListener('click', loadProcess);
+
+function buildXAITimeline(data) {
+  const summary = data.pipeline_summary || {};
+  const sceneNum = data.scene_number || '?';
+
+  const summaryHtml = `
+    <div class="xai-scene-header">
+      <span class="xai-scene-label">Scene ${esc(String(sceneNum))}</span>
+      ${summary.had_contradiction
+        ? '<span class="xai-scene-pill xai-scene-pill--conflict">Conflict Detected</span>'
+        : '<span class="xai-scene-pill xai-scene-pill--clean">No Conflicts</span>'}
+      ${summary.negotiation_rounds > 0
+        ? `<span class="xai-scene-pill xai-scene-pill--neg">${summary.negotiation_rounds} Negotiation Round(s)</span>`
+        : ''}
+    </div>`;
+
+  const nodesHtml = data.steps.map(
+    (step, idx) => buildXAINode(step, idx, data.steps.length)
+  ).join('');
+
+  return summaryHtml + nodesHtml;
+}
+
+function buildXAINode(step, idx, total) {
+  const isLast = idx === total - 1;
+  const seqNum  = String(idx + 1).padStart(2, '0');
+  const statusLabel = { done: 'Done', ok: 'Clear', conflict: 'Conflict', skipped: 'Skipped' }[step.status] || step.status;
+  const cardBody = buildXAICardBody(step);
+
+  return `
+    <div class="xai-node">
+      <div class="xai-connector">
+        <div class="xai-dot xai-dot--${esc(step.status)}">
+          <span class="xai-dot-seq">${seqNum}</span>
+        </div>
+        ${!isLast ? '<div class="xai-line"></div>' : ''}
+      </div>
+      <div class="xai-card">
+        <div class="xai-card-header">
+          <div class="xai-card-title-row">
+            <span class="xai-card-name">${esc(step.label)}</span>
+            <span class="xai-status-pill xai-status-pill--${esc(step.status)}">${statusLabel}</span>
+            <span class="xai-card-chevron">›</span>
+          </div>
+          <p class="xai-card-summary">${esc(step.summary)}</p>
+        </div>
+        <div class="xai-card-body">${cardBody}</div>
+      </div>
+    </div>`;
+}
+
+function buildXAICardBody(step) {
+  const r = step.reasoning || {};
+  const influences = step.influences || [];
+  const rationale = r.decision_rationale || '';
+
+  const whyHtml = rationale
+    ? `<div class="xai-why-block">
+        <div class="xai-why-label">WHY — this agent's decision rationale</div>
+        <p class="xai-rationale">"${esc(rationale)}"</p>
+        ${buildReasoningTags(step.agent_id, r)}
+        ${buildInfluenceBadges(influences)}
+       </div>`
+    : `<div class="xai-why-block xai-why-block--empty">
+        <div class="xai-why-label">WHY — this agent's decision rationale</div>
+        <p class="xai-rationale xai-rationale--unavailable">Reasoning data not available — regenerate this scene to see AI explanations.</p>
+       </div>`;
+
+  const renderer = xaiDetailRenderers[step.agent_id];
+  const detailsHtml = renderer ? renderer(step.details || {}) : '';
+  const whatHtml = detailsHtml
+    ? `<details class="xai-details-block">
+        <summary>Technical Details — Inputs &amp; Outputs</summary>
+        ${detailsHtml}
+       </details>`
+    : '';
+
+  return whyHtml + whatHtml;
+}
+
+function buildReasoningTags(agentId, r) {
+  const tags = [];
+  if (agentId === 'worldbuilding_agent') {
+    (r.rules_applied || []).slice(0, 4).forEach(rule =>
+      tags.push({ text: rule, cls: 'rule' }));
+    (r.constraints_identified || []).slice(0, 2).forEach(c =>
+      tags.push({ text: c, cls: 'constraint' }));
+  } else if (agentId === 'character_agent') {
+    (r.state_changes || []).slice(0, 3).forEach(sc =>
+      tags.push({ text: `${sc.character}: ${sc.change}`, cls: 'change' }));
+  } else if (agentId === 'plot_agent') {
+    (r.narrative_choices || []).slice(0, 3).forEach(nc =>
+      tags.push({ text: nc, cls: 'choice' }));
+  } else if (agentId === 'consistency_checker') {
+    if (r.confidence) tags.push({ text: `Confidence: ${r.confidence}`, cls: 'confidence' });
+    (r.checks_performed || []).forEach(chk => tags.push({ text: chk, cls: 'check' }));
+  } else if (agentId === 'narrative_output_agent') {
+    (r.style_choices || []).slice(0, 3).forEach(sc =>
+      tags.push({ text: sc, cls: 'style' }));
+  }
+  if (tags.length === 0) return '';
+  return `<div class="xai-tag-row">${tags.map(t =>
+    `<span class="xai-tag xai-tag--${t.cls}">${esc(String(t.text).slice(0, 80))}</span>`
+  ).join('')}</div>`;
+}
+
+function buildInfluenceBadges(influences) {
+  if (!influences || influences.length === 0) return '';
+  const names = {
+    worldbuilding_agent: 'WorldbuildingAgent',
+    character_agent: 'CharacterAgent',
+    plot_agent: 'PlotAgent',
+    consistency_checker: 'ConsistencyChecker',
+    narrative_output_agent: 'NarrativeOutputAgent',
+  };
+  return `<div class="xai-influence-row">
+    <span class="xai-influence-label">Informs:</span>
+    ${influences.map(inf =>
+      `<span class="xai-influence-badge">${esc(names[inf] || inf)}</span>`
+    ).join('')}
+  </div>`;
+}
+
+// Per-agent technical detail renderers (WHAT block)
+const xaiDetailRenderers = {
+  worldbuilding_agent(d) {
+    const parts = [];
+    if (d.retrieved_entities && d.retrieved_entities.length > 0) {
+      const rows = d.retrieved_entities.map(e =>
+        `<div class="proc-entity-row">
+          <span class="proc-entity-type">${esc(e.type)}</span>
+          <span class="proc-entity-name">${esc(e.name)}</span>
+          <span class="proc-entity-desc">${esc(e.summary)}</span>
+         </div>`).join('');
+      parts.push(`<div class="proc-detail-section"><div class="proc-detail-label">Retrieved Entities</div><div class="proc-entity-list">${rows}</div></div>`);
+    }
+    if (d.world_rules_preview) {
+      parts.push(`<div class="proc-detail-section"><div class="proc-detail-label">World Rules Context</div><pre class="proc-pre">${esc(d.world_rules_preview)}</pre></div>`);
+    }
+    return parts.join('');
+  },
+  character_agent(d) {
+    if (!d.character_states) return '';
+    const chars = Object.entries(d.character_states);
+    if (chars.length === 0) return '';
+    const rows = chars.map(([name, st]) =>
+      `<div class="proc-entity-row">
+        <span class="proc-entity-name" style="min-width:120px">${esc(name)}</span>
+        <span class="proc-entity-desc">${esc(String(st).slice(0, 150))}</span>
+       </div>`).join('');
+    return `<div class="proc-detail-section"><div class="proc-detail-label">Character States</div><div class="proc-entity-list">${rows}</div></div>`;
+  },
+  plot_agent(d) {
+    const parts = [];
+    if (d.plot_events && d.plot_events.length > 0) {
+      const evList = d.plot_events.map(ev => `<li>${esc(String(ev).slice(0, 160))}</li>`).join('');
+      parts.push(`<div class="proc-detail-section"><div class="proc-detail-label">Plot Events</div><ul class="proc-list">${evList}</ul></div>`);
+    }
+    if (d.raw_draft_preview) {
+      parts.push(`<div class="proc-detail-section"><div class="proc-detail-label">Raw Draft Preview</div><pre class="proc-pre">${esc(d.raw_draft_preview)}</pre></div>`);
+    }
+    return parts.join('');
+  },
+  consistency_checker(d) {
+    if (!d.contradictions) return `<em style="color:var(--text-faint)">No detail data available.</em>`;
+    if (d.contradictions.length === 0) {
+      return `<div class="proc-detail-section"><em style="color:var(--text-faint)">No contradictions found.</em></div>`;
+    }
+    const items = d.contradictions.map(buildContradictionCard).join('');
+    return `<div class="proc-detail-section"><div class="proc-detail-label">Contradictions Found</div>${items}</div>`;
+  },
+  narrative_output_agent(d) {
+    if (!d.final_prose_preview) return '';
+    return `<div class="proc-detail-section"><div class="proc-detail-label">Final Prose Preview</div><pre class="proc-pre">${esc(d.final_prose_preview)}</pre></div>`;
+  },
+};
+
+function buildContradictionCard(c) {
+  const field    = c.field || '';
+  const stored   = c.stored_value || '';
+  const inDraft  = c.new_value || '';
+  const severity = c.severity || 'minor';
+  const explanation = c.explanation || '';
+  const source   = c.source === 'pre_scan' ? 'Code Pre-scan' : 'LLM';
+
   const parts = field.split('.');
   let subject = '';
   if (parts[0] === 'character' && parts.length >= 3) {
-    subject = `Character <strong>${esc(parts[1])}</strong>'s ${esc(parts.slice(2).join('.'))}`;
+    subject = `<strong>${esc(parts[1])}</strong> — ${esc(parts.slice(2).join('.'))}`;
   } else if (parts[0] === 'world_rule') {
-    subject = `World rule <strong>${esc(parts.slice(1).join('.'))}</strong>`;
-  } else if (parts[0] === 'continuity') {
-    subject = `Continuity — <strong>${esc(parts.slice(1).join('.'))}</strong>`;
+    subject = `World rule: <strong>${esc(parts.slice(1).join('.'))}</strong>`;
   } else {
     subject = `<strong>${esc(field)}</strong>`;
   }
 
-  return `${sevTag} ${subject}` +
-         `<div style="margin-top:4px;font-size:11px;color:var(--text-muted)">` +
-         `Established: <em>"${stored}"</em><br>` +
-         `In draft: <em>"${inDraft}"</em></div>`;
+  const sevLabel = severity === 'critical' ? 'CRITICAL' : 'MINOR';
+
+  return `
+    <div class="xai-contradiction-card xai-contra--${esc(severity)}">
+      <div class="xai-contra-header">
+        <span class="xai-contra-severity xai-contra-severity--${esc(severity)}">${sevLabel}</span>
+        <span class="xai-contra-field">${subject}</span>
+        <span class="xai-contra-source">Detected by ${esc(source)}</span>
+      </div>
+      <div class="xai-contra-body">
+        <div class="xai-contra-col xai-contra-col--stored">
+          <div class="xai-contra-col-label">Established Fact</div>
+          <div class="xai-contra-value">"${esc(stored)}"</div>
+        </div>
+        <div class="xai-contra-divider">≠</div>
+        <div class="xai-contra-col xai-contra-col--draft">
+          <div class="xai-contra-col-label">Draft Contradiction</div>
+          <div class="xai-contra-value">"${esc(inDraft)}"</div>
+        </div>
+      </div>
+      ${explanation
+        ? `<div class="xai-contra-explanation">${esc(explanation)}</div>`
+        : ''}
+    </div>`;
 }
 
-async function loadConflicts() {
-  if (!state.activeNovelId) return;
-  const wrap = $('conflictsTable');
-  wrap.innerHTML = '<div class="loading-row"><span class="spinner"></span>Loading…</div>';
-  try {
-    const resp   = await fetch(`${API}/audit/${state.activeNovelId}/negotiations`);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const allRounds = await resp.json();
-    // Filter out stale/empty entries (round 0 with no contradictions — legacy data)
-    const rounds = (allRounds || []).filter(r =>
-      r.round_number > 0 || (r.contradictions && r.contradictions.length > 0)
-    );
-    if (!rounds || rounds.length === 0) {
-      wrap.innerHTML = '<div class="empty-state">No conflicts detected yet.</div>';
-      return;
+function buildNegotiationPanel(neg) {
+  if (!neg.log || neg.log.length === 0) {
+    return '<div class="empty-state" style="margin:12px">No negotiation entries.</div>';
+  }
+
+  const bubblesHtml = neg.log.map(entry => {
+    const agent  = entry.agent || (entry.participants ? entry.participants[0] : '?');
+    const isChecker = agent === 'consistency_checker';
+    const isReviser = agent === 'revision_agent';
+    const bubbleCls = isChecker
+      ? 'xai-neg-bubble--checker'
+      : isReviser ? 'xai-neg-bubble--reviser' : 'xai-neg-bubble--other';
+    const avatarTxt = isChecker ? 'CC' : isReviser ? 'RA' : esc(agent.substring(0, 2).toUpperCase());
+    const agentLabel = isChecker ? 'ConsistencyChecker' : isReviser ? 'RevisionAgent' : esc(agent);
+    const roundLabel = entry.round_number !== undefined ? `Round ${entry.round_number}` : '';
+
+    let msgBody = '';
+    if (isChecker && entry.round_number === 0) {
+      const n = entry.contradictions_found ?? (entry.contradictions || []).length;
+      msgBody = n > 0
+        ? `Detected ${n} contradiction(s). Triggering negotiation.`
+        : 'No contradictions detected. Scene is consistent.';
+    } else if (isReviser) {
+      const before = entry.contradictions_before ?? (entry.contradictions || []).length;
+      const afterList = Array.isArray(entry.contradictions_after) ? entry.contradictions_after : [];
+      const after  = entry.contradictions_found ?? afterList.length;
+      const changes = entry.changes_made || [];
+      msgBody = `Revised draft (${before} → ${after} contradiction(s) remaining).`;
+      if (changes.length > 0) {
+        msgBody += ` <span class="xai-neg-changes">${changes.map(ch => esc(ch)).join(' · ')}</span>`;
+      }
+    } else if (isChecker && (entry.round_number || 0) > 0) {
+      const afterList = Array.isArray(entry.contradictions_after) ? entry.contradictions_after : [];
+      const found = entry.contradictions_found ?? afterList.length;
+      msgBody = found === 0
+        ? 'Re-checked revised draft. 0 contradictions found.'
+        : `Re-checked revised draft. ${found} contradiction(s) remain.`;
+      if (entry.resolution === 'resolved') {
+        msgBody += ' <span class="xai-neg-resolved-badge">Resolved</span>';
+      }
+    } else {
+      msgBody = esc(entry.resolution || entry.action || 'Processed');
     }
-    const headers = ['Chapter', 'Negotiation Round', 'Contradictions Detected', 'Result', 'Time'];
-    const rows = rounds.map(r => {
-      const chapterLabel = r.scene_number ? `Scene ${r.scene_number}` : '—';
-      const roundLabel   = `Round ${r.round_number}`;
 
-      const contradictionHtml = (r.contradictions && r.contradictions.length > 0)
-        ? r.contradictions.map(formatContradictionItem).join(
-            '<hr style="border:none;border-top:1px solid var(--border);margin:8px 0">')
-        : '<span style="color:var(--text-faint)">—</span>';
+    return `
+      <div class="xai-neg-bubble ${bubbleCls}">
+        <div class="xai-neg-avatar">${avatarTxt}</div>
+        <div class="xai-neg-msg-block">
+          <div class="xai-neg-meta">
+            <span class="xai-neg-agent-name">${agentLabel}</span>
+            ${roundLabel ? `<span class="xai-neg-round-label">${roundLabel}</span>` : ''}
+          </div>
+          <div class="xai-neg-msg">${msgBody}</div>
+        </div>
+      </div>`;
+  }).join('');
 
-      const resultTag = r.resolved
-        ? '<span class="resolved-yes">✓ Resolved</span>'
-        : (r.resolution === 'pending'
-            ? '<span class="resolved-no">✗ Unresolved</span>'
-            : `<span class="resolved-no">✗ ${esc(r.resolution || 'Unresolved')}</span>`);
+  const resolutionHtml = neg.resolved
+    ? `<div class="xai-neg-result xai-neg-result--resolved">All contradictions resolved.</div>`
+    : `<div class="xai-neg-result xai-neg-result--unresolved">Contradictions could not be fully resolved — best available draft was used.</div>`;
 
-      return [chapterLabel, roundLabel, contradictionHtml, resultTag, fmtTimestamp(r.timestamp)];
-    });
-    wrap.innerHTML = buildTable(headers, rows, [false, false, true, true, false]);
-  } catch (err) { $('conflictsTable').innerHTML = `<div class="empty-state">Error: ${esc(err.message)}</div>`; }
+  return bubblesHtml + resolutionHtml;
 }
-$('refreshConflictsBtn').addEventListener('click', loadConflicts);
 
 // ─── Audit ────────────────────────────────────
 let _auditOffset = 0;
