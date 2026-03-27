@@ -164,6 +164,7 @@ class ConsistencyChecker(BaseAgent):
 
         has_contradiction = bool(result.get("has_contradiction", False))
         contradictions = result.get("contradictions", [])
+        consistency_reasoning = result.get("reasoning", {})
 
         # If the code pre-scan found hints that the LLM did not flag, promote them.
         # This prevents LLM under-reporting from silently dropping confirmed code findings.
@@ -185,7 +186,11 @@ class ConsistencyChecker(BaseAgent):
         detection_entry = {
             "scene_number": scene_number,
             "round_number": 0,
+            "agent": "consistency_checker",
+            "role": "detector",
+            "action": "detected",
             "contradictions": contradictions,
+            "contradictions_found": len(contradictions),
             "resolution": "contradictions_found" if has_contradiction else "clean",
             "resolved": not has_contradiction,
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -194,6 +199,7 @@ class ConsistencyChecker(BaseAgent):
         return {
             "has_contradiction": has_contradiction,
             "contradictions": contradictions,
+            "consistency_reasoning": consistency_reasoning,
             "negotiation_log": [detection_entry],
             "agent_messages": [{
                 "agent_id": self.agent_id,

@@ -74,7 +74,22 @@ system: |
   Always respond in valid JSON:
   {
     "has_contradiction": false,
-    "contradictions": []
+    "contradictions": [
+      {
+        "field": "<e.g. character.Name.hair_color or world_rule.rule_name>",
+        "stored_value": "<the exact permanent fact or rule>",
+        "new_value": "<the specific phrase in the draft that contradicts it>",
+        "severity": "critical",
+        "tier": "1",
+        "explanation": "<one sentence: exactly why this is a contradiction, quoting both the stored fact and the draft phrase>"
+      }
+    ],
+    "reasoning": {
+      "checks_performed": ["physical_attributes", "world_rules", "extended_attributes"],
+      "entities_checked": ["<entity name>"],
+      "clear_rationale": "<if no contradictions: what you checked and why you concluded the draft is consistent>",
+      "confidence": "high"
+    }
   }
 
 user_template: |

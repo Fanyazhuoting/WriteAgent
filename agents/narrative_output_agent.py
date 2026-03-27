@@ -111,6 +111,7 @@ class NarrativeOutputAgent(BaseAgent):
         scene_summary = result.get("scene_summary", "")
         locations_mentioned: list = result.get("locations_mentioned") or []
         corrections_log: list = result.get("corrections_log") or []
+        narrative_reasoning: dict = result.get("reasoning", {})
 
         # Fallback: if JSON parsing failed or final_prose is empty, try regex extraction
         if not final_prose:
@@ -291,6 +292,7 @@ class NarrativeOutputAgent(BaseAgent):
             "final_prose": final_prose,
             "prose_chunks": [final_prose],
             "scene_history": [final_prose],
+            "narrative_reasoning": narrative_reasoning,
             "agent_messages": [{
                 "agent_id": self.agent_id,
                 "content": content,

@@ -40,7 +40,7 @@
       <nav class="tab-nav" id="tabNav">
         <a class="tab-link active" data-tab="writer">Writer</a>
         <a class="tab-link" data-tab="worldgraph">World Graph</a>
-        <a class="tab-link" data-tab="conflicts">Conflicts</a>
+        <a class="tab-link" data-tab="process">Process</a>
         <a class="tab-link" data-tab="audit">Audit</a>
       </nav>
       <div class="appbar-right">
@@ -269,7 +269,7 @@
               <div class="conflict-banner-title">Story Conflicts Detected</div>
               <div class="conflict-banner-desc" id="conflictBannerDesc">
                 Agents could not fully resolve all contradictions in this scene.
-                <button type="button" class="conflict-banner-link" id="conflictBannerLink">View in Conflicts tab →</button>
+                <button type="button" class="conflict-banner-link" id="conflictBannerLink">View in Process tab →</button>
               </div>
             </div>
             <button type="button" class="conflict-banner-dismiss" id="conflictBannerDismiss">×</button>
@@ -436,15 +436,47 @@
       </div>
     </div>
 
-    <!-- ─── Conflicts Tab ─── -->
-    <div class="tab-content hidden" id="tab-conflicts">
+    <!-- ─── Process Tab ─── -->
+    <div class="tab-content hidden" id="tab-process">
       <div class="table-view">
         <div class="table-header">
-          <h2 class="section-title">Agent Negotiation Log</h2>
-          <p class="section-desc">When the Consistency Checker detects a contradiction, agents negotiate a resolution.</p>
-          <button class="btn-table-refresh" id="refreshConflictsBtn" style="margin-top:12px">Refresh</button>
+          <h2 class="section-title">AI Decision Chain</h2>
+          <p class="section-desc">How each agent reasoned and what it decided — expand a step to see the WHY behind each decision.</p>
+          <button class="btn-table-refresh" id="refreshProcessBtn" style="margin-top:12px">Refresh</button>
         </div>
-        <div id="conflictsTable"><div class="empty-state">Select a novel to view negotiations.</div></div>
+
+        <!-- Live generation banner -->
+        <div class="process-live-banner hidden" id="processLiveBanner">
+          <div class="plb-orb"></div>
+          <div class="plb-body">
+            <span class="plb-stage-label" id="plbStageLabel">Generating…</span>
+            <div class="plb-stages">
+              <span class="plb-s" data-s="world">WORLD</span>
+              <span class="plb-arrow">›</span>
+              <span class="plb-s" data-s="char">CHAR</span>
+              <span class="plb-arrow">›</span>
+              <span class="plb-s" data-s="plot">PLOT</span>
+              <span class="plb-arrow">›</span>
+              <span class="plb-s" data-s="logic">LOGIC</span>
+              <span class="plb-arrow">›</span>
+              <span class="plb-s" data-s="narr">NARR</span>
+            </div>
+          </div>
+          <div class="plb-spinner"></div>
+        </div>
+
+        <div class="xai-layout">
+          <div class="xai-timeline-panel">
+            <div id="xaiTimeline"><div class="empty-state">Select a novel to view agent reasoning.</div></div>
+          </div>
+          <div class="xai-negotiation-panel" id="xaiNegPanel" style="display:none">
+            <div class="xai-neg-header">
+              <span class="xai-neg-title">Negotiation Process</span>
+              <span class="xai-neg-subtitle" id="xaiNegSubtitle"></span>
+            </div>
+            <div id="xaiNegContent"></div>
+          </div>
+        </div>
       </div>
     </div>
 
