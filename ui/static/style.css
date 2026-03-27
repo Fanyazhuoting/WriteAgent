@@ -1901,7 +1901,7 @@ table.data-table tr:hover td { background: rgba(40,40,61,0.3); }
 .proc-status-done     { background: rgba(74,222,128,0.12); color: #4ade80; }
 .proc-status-ok       { background: rgba(74,222,128,0.12); color: #4ade80; }
 .proc-status-conflict { background: rgba(255,77,109,0.15); color: #ff4d6d; }
-.proc-status-skipped  { background: rgba(148,163,184,0.1); color: var(--text-faint); }
+.proc-status-inactive  { background: rgba(148,163,184,0.1); color: var(--text-faint); }
 
 .proc-toggle-icon {
   font-size: 18px;
@@ -2101,7 +2101,7 @@ table.data-table tr:hover td { background: rgba(40,40,61,0.3); }
 .xai-dot--done     { background: rgba(74,222,128,0.12); border-color: rgba(74,222,128,0.4); color: #4ade80; }
 .xai-dot--ok       { background: rgba(74,222,128,0.12); border-color: rgba(74,222,128,0.4); color: #4ade80; }
 .xai-dot--conflict { background: rgba(255,77,109,0.12); border-color: rgba(255,77,109,0.4); color: #ff4d6d; }
-.xai-dot--skipped  { background: rgba(148,163,184,0.08); border-color: rgba(148,163,184,0.2); color: var(--text-faint); }
+.xai-dot--inactive  { background: rgba(148,163,184,0.08); border-color: rgba(148,163,184,0.2); color: var(--text-faint); }
 .xai-dot-seq { font-size: 11px; font-weight: 700; }
 
 .xai-line {
@@ -2151,7 +2151,7 @@ table.data-table tr:hover td { background: rgba(40,40,61,0.3); }
 .xai-status-pill--done     { background: rgba(74,222,128,0.12); color: #4ade80; }
 .xai-status-pill--ok       { background: rgba(74,222,128,0.12); color: #4ade80; }
 .xai-status-pill--conflict { background: rgba(255,77,109,0.15); color: #ff4d6d; }
-.xai-status-pill--skipped  { background: rgba(148,163,184,0.1); color: var(--text-faint); }
+.xai-status-pill--inactive  { background: rgba(148,163,184,0.1); color: var(--text-faint); }
 
 .xai-card-chevron {
   font-size: 18px;
@@ -2391,3 +2391,102 @@ table.data-table tr:hover td { background: rgba(40,40,61,0.3); }
 }
 .xai-neg-result--resolved   { background: rgba(74,222,128,0.10); color: #4ade80; }
 .xai-neg-result--unresolved { background: rgba(255,77,109,0.10); color: #ff4d6d; }
+
+/* ── Process Live Generation Banner ── */
+.process-live-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  margin-bottom: 18px;
+  background: linear-gradient(135deg, rgba(46,1,75,0.35), rgba(124,58,237,0.12));
+  border: 1px solid rgba(226,181,255,0.22);
+  border-radius: 10px;
+  position: relative;
+  overflow: hidden;
+}
+.process-live-banner.hidden { display: none; }
+.process-live-banner::before {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  left: -60%;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(226,181,255,0.07), transparent);
+  animation: plb-shimmer 2.6s ease-in-out infinite;
+}
+@keyframes plb-shimmer {
+  0%   { left: -60%; }
+  100% { left: 120%; }
+}
+.plb-orb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+  flex-shrink: 0;
+  animation: plb-orb-pulse 1.6s ease-in-out infinite;
+}
+@keyframes plb-orb-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(226,181,255,0.55); opacity: 1; }
+  50%       { box-shadow: 0 0 0 7px rgba(226,181,255,0);  opacity: 0.7; }
+}
+.plb-body { flex: 1; min-width: 0; }
+.plb-stage-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 7px;
+  letter-spacing: 0.2px;
+}
+.plb-stages {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.plb-arrow {
+  color: var(--text-faint);
+  font-size: 11px;
+  opacity: 0.5;
+}
+.plb-s {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: var(--text-faint);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: all 0.35s ease;
+}
+.plb-s.done {
+  color: #9f7aea;
+  background: rgba(124,58,237,0.18);
+  border-color: rgba(124,58,237,0.3);
+}
+.plb-s.active {
+  color: var(--accent);
+  background: rgba(226,181,255,0.13);
+  border-color: rgba(226,181,255,0.35);
+  animation: plb-stage-glow 1.5s ease-in-out infinite;
+}
+@keyframes plb-stage-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(226,181,255,0.25); }
+  50%       { box-shadow: 0 0 7px rgba(226,181,255,0.45); }
+}
+.plb-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(226,181,255,0.15);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: plb-spin 0.85s linear infinite;
+}
+@keyframes plb-spin {
+  to { transform: rotate(360deg); }
+}

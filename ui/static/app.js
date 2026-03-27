@@ -17,6 +17,8 @@ const state = {
   sceneNumber:   0,
   simulation:    null,
   genStartTime:  0,
+  isGenerating:  false,
+  currentStage:  'world',
 };
 
 // ─── Helpers ─────────────────────────────────
@@ -580,6 +582,7 @@ function showPipeline(show) {
 }
 
 function setPipelineState(currentStage) {
+  state.currentStage = currentStage;
   const currentIdx = STAGES.indexOf(currentStage);
   STAGES.forEach((s, i) => {
     const el = $(`stage-${s}`);
@@ -591,12 +594,31 @@ function setPipelineState(currentStage) {
     conn.className = 'p-connector ' + (idx < currentIdx ? 'done' : idx === currentIdx ? 'loading' : 'pending');
   });
   $('pipelineStatus').textContent = STAGE_LABELS[currentStage] || 'Processing…';
+  updateProcessLiveBanner();
 }
 
 function setPipelineAllDone() {
   STAGES.forEach(s => { const el = $(`stage-${s}`); if (el) el.className = 'p-stage done'; });
   document.querySelectorAll('.p-connector').forEach(c => { c.className = 'p-connector done'; });
   $('pipelineStatus').textContent = 'Scene generation complete!';
+}
+
+function updateProcessLiveBanner(customLabel) {
+  const banner = $('processLiveBanner');
+  if (!banner) return;
+  if (!state.isGenerating) {
+    banner.classList.add('hidden');
+    return;
+  }
+  banner.classList.remove('hidden');
+  const label = customLabel || STAGE_LABELS[state.currentStage] || 'Processing…';
+  const lbl = $('plbStageLabel');
+  if (lbl) lbl.textContent = label;
+  const idx = STAGES.indexOf(state.currentStage);
+  banner.querySelectorAll('.plb-s').forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+    el.classList.toggle('done', i < idx);
+  });
 }
 
 function getStageFromElapsed(ms) {
@@ -622,6 +644,7 @@ $('generateSceneBtn').addEventListener('click', async () => {
   btn.textContent = '✦ Generating…';
 
   state.genStartTime = Date.now();
+  state.isGenerating = true;
   showPipeline(true);
   setPipelineState('world');
 
@@ -654,7 +677,10 @@ $('generateSceneBtn').addEventListener('click', async () => {
       if (job.status === 'generating' && job.has_conflict && job.negotiation_round > 0) {
         const logicEl = $('stage-logic');
         if (logicEl) logicEl.className = 'p-stage conflict';
-        $('pipelineStatus').textContent = `Conflict detected — negotiating (round ${job.negotiation_round})…`;
+        const conflictLabel = `Conflict detected — negotiating (round ${job.negotiation_round})…`;
+        $('pipelineStatus').textContent = conflictLabel;
+        state.currentStage = 'logic';
+        updateProcessLiveBanner(conflictLabel);
       }
 
       if (job.status === 'done') {
@@ -693,6 +719,7 @@ $('generateSceneBtn').addEventListener('click', async () => {
 
         setTimeout(() => showPipeline(false), 3000);
         if (state.activeTab === 'worldgraph') setTimeout(loadGraph, 500);
+        if (state.activeTab === 'process') setTimeout(loadProcess, 800);
         break;
       }
     }
@@ -702,6 +729,8 @@ $('generateSceneBtn').addEventListener('click', async () => {
     }
     showPipeline(false);
   } finally {
+    state.isGenerating = false;
+    updateProcessLiveBanner();
     btn.disabled = false;
     btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M5.5 1l1.1 3.3H10l-2.7 2 1 3.1L5.5 7.5 3.2 9.4l1-3.1L1.5 4.3H4.4z" fill="currentColor"/></svg> Distill Prose`;
   }
@@ -1059,6 +1088,7 @@ function formatContradictions(contradictions, fallbackProposal) {
 
 async function loadProcess() {
   if (!state.activeNovelId) return;
+  updateProcessLiveBanner();
   const timeline = $('xaiTimeline');
   timeline.innerHTML = '<div class="loading-row"><span class="spinner"></span>Loading…</div>';
   try {
@@ -1115,7 +1145,7 @@ function buildXAITimeline(data) {
 function buildXAINode(step, idx, total) {
   const isLast = idx === total - 1;
   const seqNum  = String(idx + 1).padStart(2, '0');
-  const statusLabel = { done: 'Done', ok: 'Clear', conflict: 'Conflict', skipped: 'Skipped' }[step.status] || step.status;
+  const statusLabel = { done: 'Done', ok: 'Clear', conflict: 'Conflict', inactive: 'Inactive' }[step.status] || step.status;
   const cardBody = buildXAICardBody(step);
 
   return `
