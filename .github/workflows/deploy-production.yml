@@ -28,7 +28,6 @@ jobs:
           key: ${{ secrets.PRODUCTION_SSH_KEY }}
           source: "docker-compose.yml,docker-compose.production.yml"
           target: "~/writeagent"
-          strip_components: 1
 
       - name: Deploy on production server
         uses: appleboy/ssh-action@v1.0.3
