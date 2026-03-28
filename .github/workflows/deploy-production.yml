@@ -64,5 +64,12 @@ jobs:
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
             docker compose -f docker-compose.yml -f docker-compose.production.yml pull
             docker compose -f docker-compose.yml -f docker-compose.production.yml up -d
-            sleep 10
-            curl -fsS "http://localhost:${{ vars.WRITEAGENT_PORT || '8000' }}/api/v1/admin/health"
+            for i in $(seq 1 12); do
+              if curl -fsS "http://localhost:${{ vars.WRITEAGENT_PORT || '8000' }}/api/v1/admin/health"; then
+                exit 0
+              fi
+              sleep 10
+            done
+            docker compose -f docker-compose.yml -f docker-compose.production.yml ps
+            docker compose -f docker-compose.yml -f docker-compose.production.yml logs --tail=200
+            exit 1
