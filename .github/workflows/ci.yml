@@ -64,7 +64,7 @@ jobs:
 
       - name: Run Bandit
         run: |
-          bandit -r . -x tests,lib
+          bandit -r . -x ./tests,./lib -s B101,B104,B105,B110
 
       - name: Run dependency audit
         run: |

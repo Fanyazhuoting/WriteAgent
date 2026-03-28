@@ -45,7 +45,6 @@ jobs:
           key: ${{ secrets.STAGING_SSH_KEY }}
           source: "docker-compose.yml,docker-compose.staging.yml"
           target: "~/writeagent"
-          strip_components: 1
 
       - name: Deploy on staging server
         uses: appleboy/ssh-action@v1.0.3
