@@ -68,7 +68,10 @@ jobs:
 
       - name: Run dependency audit
         run: |
-          pip-audit -r requirements.txt
+          # Temporary allowlist: pip-audit reports CVE-2026-4539 on transitive
+          # pygments 2.19.2 with no published fix version yet. Keep auditing
+          # enabled, but do not fail CI on this specific unresolved advisory.
+          pip-audit -r requirements.txt --ignore-vuln CVE-2026-4539
 
   docker-build-check:
     runs-on: ubuntu-latest
