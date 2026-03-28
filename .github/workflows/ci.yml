@@ -7,6 +7,7 @@ on:
       - main
       - master
       - workflow-setup
+      - workflow-setup
 
 jobs:
   test-and-security:
