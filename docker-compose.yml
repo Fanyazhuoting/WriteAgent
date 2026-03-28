@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "${WRITEAGENT_PORT:-8000}:8000"
+      - "127.0.0.1:${WRITEAGENT_PORT:-8000}:8000"
     env_file:
       - .env
     environment:
