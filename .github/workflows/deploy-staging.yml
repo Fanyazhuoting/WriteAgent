@@ -43,7 +43,7 @@ jobs:
           host: ${{ secrets.STAGING_HOST }}
           username: ${{ secrets.STAGING_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
-          source: "WriteAgent/docker-compose.yml,WriteAgent/docker-compose.staging.yml"
+          source: "docker-compose.yml,docker-compose.staging.yml"
           target: "~/writeagent"
           strip_components: 1
 

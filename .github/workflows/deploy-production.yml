@@ -26,7 +26,7 @@ jobs:
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ secrets.PRODUCTION_USER }}
           key: ${{ secrets.PRODUCTION_SSH_KEY }}
-          source: "WriteAgent/docker-compose.yml,WriteAgent/docker-compose.production.yml"
+          source: "docker-compose.yml,docker-compose.production.yml"
           target: "~/writeagent"
           strip_components: 1
 
