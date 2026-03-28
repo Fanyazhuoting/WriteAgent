@@ -200,6 +200,124 @@ def generation_status(novel_id: str, states=Depends(get_state_store)):
     }
 
 
+@router.get("/{novel_id}/scene/process")
+def scene_process(novel_id: str, states=Depends(get_state_store)):
+    """Return per-agent reasoning data for the most recently generated scene."""
+    if novel_id not in states:
+        raise HTTPException(status_code=404, detail="Novel not found")
+    s = states[novel_id]
+
+    retrieved_entities = s.get("retrieved_entities", [])
+    world_rules_context = s.get("world_rules_context", "")
+    character_states = s.get("character_states", {})
+    plot_events = s.get("plot_events", [])
+    contradictions = s.get("contradictions", [])
+    negotiation_log = s.get("negotiation_log", [])
+    negotiation_resolved = s.get("negotiation_resolved", False)
+    negotiation_round = s.get("negotiation_round", 0)
+    final_prose = s.get("final_prose", "")
+    has_contradiction = s.get("has_contradiction", False)
+    raw_scene_draft = s.get("raw_scene_draft", "")
+
+    # XAI reasoning snapshots (empty dict if agent hasn't run yet or scene predates XAI)
+    wb_reasoning  = s.get("worldbuilding_reasoning", {})
+    chr_reasoning = s.get("character_reasoning", {})
+    plt_reasoning = s.get("plot_reasoning", {})
+    cc_reasoning  = s.get("consistency_reasoning", {})
+    nar_reasoning = s.get("narrative_reasoning", {})
+
+    steps = [
+        {
+            "agent_id": "worldbuilding_agent",
+            "label": "WorldbuildingAgent",
+            "sequence": 1,
+            "status": "done" if world_rules_context else "inactive",
+            "summary": f"Context built — {len(retrieved_entities)} entities retrieved, world rules loaded",
+            "reasoning": wb_reasoning,
+            "influenced_by": [],
+            "influences": ["character_agent", "plot_agent"],
+            "details": {
+                "world_rules_preview": world_rules_context[:300] if world_rules_context else "",
+                "retrieved_entities": [
+                    {
+                        "name": e.get("name", "?"),
+                        "type": e.get("entity_type", "?"),
+                        "summary": (e.get("description") or "")[:120],
+                    }
+                    for e in retrieved_entities[:8]
+                ],
+            },
+        },
+        {
+            "agent_id": "character_agent",
+            "label": "CharacterAgent",
+            "sequence": 2,
+            "status": "done" if character_states else "inactive",
+            "summary": f"{len(character_states)} character state(s) updated this scene",
+            "reasoning": chr_reasoning,
+            "influenced_by": ["worldbuilding_agent"],
+            "influences": ["plot_agent"],
+            "details": {"character_states": character_states},
+        },
+        {
+            "agent_id": "plot_agent",
+            "label": "PlotAgent",
+            "sequence": 3,
+            "status": "done" if raw_scene_draft else "inactive",
+            "summary": f"{len(plot_events)} plot event(s) recorded, raw draft generated",
+            "reasoning": plt_reasoning,
+            "influenced_by": ["worldbuilding_agent", "character_agent"],
+            "influences": ["consistency_checker"],
+            "details": {
+                "plot_events": plot_events,
+                "raw_draft_preview": raw_scene_draft[:400] if raw_scene_draft else "",
+            },
+        },
+        {
+            "agent_id": "consistency_checker",
+            "label": "ConsistencyChecker",
+            "sequence": 4,
+            "status": "conflict" if has_contradiction else "ok",
+            "summary": (
+                f"{len(contradictions)} contradiction(s) detected — negotiation triggered"
+                if has_contradiction
+                else "No contradictions detected"
+            ),
+            "reasoning": cc_reasoning,
+            "influenced_by": ["plot_agent"],
+            "influences": ["narrative_output_agent"],
+            "details": {"contradictions": contradictions},
+        },
+        {
+            "agent_id": "narrative_output_agent",
+            "label": "NarrativeOutputAgent",
+            "sequence": 5,
+            "status": "done" if final_prose else "inactive",
+            "summary": f"Final prose generated ({len(final_prose)} characters)",
+            "reasoning": nar_reasoning,
+            "influenced_by": ["consistency_checker"],
+            "influences": [],
+            "details": {"final_prose_preview": final_prose[:500] if final_prose else ""},
+        },
+    ]
+
+    return {
+        "scene_number": s.get("current_scene_number", 0),
+        "pipeline_summary": {
+            "total_agents": 5,
+            "had_contradiction": has_contradiction,
+            "negotiation_rounds": negotiation_round,
+            "negotiation_resolved": negotiation_resolved,
+        },
+        "steps": steps,
+        "negotiation": {
+            "rounds": negotiation_round,
+            "resolved": negotiation_resolved,
+            "log": negotiation_log,
+        },
+    }
+
+
 @router.post("/{novel_id}/inject")
 def inject_event(
     novel_id: str,

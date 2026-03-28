@@ -100,12 +100,26 @@ def run_negotiation(state: dict) -> dict:
         still_contradictions = check_result.get("has_contradiction", False)
         new_contradictions = check_result.get("contradictions", [])
 
+        # Summarise what was changed without a full diff algorithm
+        changes_made = [
+            f"Corrected: {c.get('field', '?')}"
+            for c in contradictions[:3]
+        ]
+        if len(contradictions) > 3:
+            changes_made.append(f"...and {len(contradictions) - 3} more")
+
         negotiation_log.append({
             "scene_number": scene_number,
             "round_number": round_num,
+            "agent": "revision_agent",
+            "role": "reviser",
+            "action": "revised",
             "participants": ["revision_agent", "consistency_checker"],
+            "changes_made": changes_made,
             "contradictions": contradictions,
+            "contradictions_before": len(contradictions),
             "contradictions_after": new_contradictions,
+            "contradictions_found": len(new_contradictions),
             "resolution": "resolved" if not still_contradictions else "pending",
             "resolved": not still_contradictions,
             "timestamp": ts,

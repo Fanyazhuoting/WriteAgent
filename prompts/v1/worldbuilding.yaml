@@ -12,7 +12,13 @@ system: |
 
   Always respond in valid JSON:
   {
-    "world_rules_context": "<relevant rules as prose>"
+    "world_rules_context": "<relevant rules as prose>",
+    "reasoning": {
+      "rules_applied": ["<rule 1 that is relevant to this scene>"],
+      "entities_considered": ["<entity name>"],
+      "decision_rationale": "<1-2 sentences: why these specific rules and entities matter for this scene>",
+      "constraints_identified": ["<any constraint downstream agents must respect>"]
+    }
   }
 
 user_template: |
@@ -31,4 +37,4 @@ user_template: |
   ## Draft (may be empty for first scene)
   {draft}
 
-  Provide the relevant world context for this scene.
+  Provide the relevant world context for this scene. Include a 'reasoning' block explaining which rules you applied and why they matter for this specific scene.

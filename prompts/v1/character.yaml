@@ -37,7 +37,14 @@ system: |
     "new_character_permanent": {
       "<new_character_name_only>": "<permanent attributes: appearance, species, background, core identity>"
     },
-    "flags": []
+    "flags": [],
+    "reasoning": {
+      "characters_active": ["<name of each character in this scene>"],
+      "state_changes": [
+        {"character": "<name>", "change": "<what changed from last scene>", "reason": "<why this change given the scene brief>"}
+      ],
+      "decision_rationale": "<1-2 sentences: overall rationale for character state decisions this scene>"
+    }
   }
   `new_character_permanent` must be empty ({}) if all characters in this scene are existing ones.
   Add a flag entry if the scene brief or draft contradicts a stored permanent attribute.

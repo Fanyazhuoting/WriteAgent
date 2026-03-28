@@ -45,6 +45,7 @@ class WorldbuildingAgent(BaseAgent):
 
         return {
             "world_rules_context": result.get("world_rules_context", ""),
+            "worldbuilding_reasoning": result.get("reasoning", {}),
             "agent_messages": [{
                 "agent_id": self.agent_id,
                 "content": content,

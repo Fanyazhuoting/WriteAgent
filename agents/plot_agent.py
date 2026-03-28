@@ -58,6 +58,7 @@ class PlotAgent(BaseAgent):
         update: dict = {
             "raw_scene_draft": scene_draft,
             "plot_events": new_events,
+            "plot_reasoning": result.get("reasoning", {}),
             "agent_messages": [{
                 "agent_id": self.agent_id,
                 "content": content,
