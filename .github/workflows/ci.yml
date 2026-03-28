@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - master
+      - workflow-setup
 
 jobs:
   test-and-security:
