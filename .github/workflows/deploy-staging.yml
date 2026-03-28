@@ -56,6 +56,7 @@ jobs:
             set -eu
             mkdir -p ~/writeagent
             cd ~/writeagent
+            OWNER_LC=$(printf '%s' "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
             cat > .env <<EOF
             DASHSCOPE_API_KEY=${{ secrets.DASHSCOPE_API_KEY }}
             QWEN_MODEL_NAME=${{ vars.QWEN_MODEL_NAME || 'qwen-max' }}
@@ -73,7 +74,7 @@ jobs:
             LANGCHAIN_ENDPOINT=${{ vars.LANGCHAIN_ENDPOINT || 'https://api.smith.langchain.com' }}
             PROMPT_VERSION=${{ vars.PROMPT_VERSION || 'v1' }}
             PROMPTS_DIR=/app/prompts
-            WRITEAGENT_IMAGE=ghcr.io/${{ github.repository_owner }}/writeagent
+            WRITEAGENT_IMAGE=ghcr.io/${OWNER_LC}/writeagent
             WRITEAGENT_TAG=${{ steps.vars.outputs.image_tag }}
             WRITEAGENT_PORT=${{ vars.WRITEAGENT_PORT || '8000' }}
             EOF
