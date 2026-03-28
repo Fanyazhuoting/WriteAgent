@@ -1,0 +1,8 @@
+services:
+  writeagent:
+    image: ${WRITEAGENT_IMAGE:-ghcr.io/your-org/writeagent}:${WRITEAGENT_TAG:-latest}
+    environment:
+      PROMPT_VERSION: ${PROMPT_VERSION:-v1}
+      LANGCHAIN_TRACING_V2: ${LANGCHAIN_TRACING_V2:-true}
+    labels:
+      app.environment: production
