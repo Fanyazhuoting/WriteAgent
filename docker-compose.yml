@@ -1,0 +1,29 @@
+services:
+  writeagent:
+    image: ${WRITEAGENT_IMAGE:-ghcr.io/your-org/writeagent}:${WRITEAGENT_TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${WRITEAGENT_PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      CHROMA_PERSIST_DIR: /app/chroma_data
+      LANGCHAIN_TRACING_V2: ${LANGCHAIN_TRACING_V2:-false}
+    volumes:
+      - writeagent_chroma:/app/chroma_data
+      - writeagent_audit:/app/audit_logs
+      - writeagent_state:/app/novel_states
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/v1/admin/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
+volumes:
+  writeagent_chroma:
+  writeagent_audit:
+  writeagent_state:

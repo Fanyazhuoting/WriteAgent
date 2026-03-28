@@ -1,0 +1,38 @@
+groups:
+  - name: writeagent-alerts
+    rules:
+      - alert: WriteAgentHealthDegraded
+        expr: writeagent_health_status == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "WriteAgent health endpoint is degraded"
+          description: "The service health check has been degraded for more than 5 minutes."
+
+      - alert: WriteAgentGenerationFailuresHigh
+        expr: rate(writeagent_scene_generation_failures_total[10m]) > 0.1
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Scene generation failures are elevated"
+          description: "Generation failures exceeded the allowed baseline in the last 10 minutes."
+
+      - alert: WriteAgentAuditLoggingFailure
+        expr: rate(writeagent_audit_log_failures_total[10m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Audit log failures detected"
+          description: "Audit logging must not fail silently in production."
+
+      - alert: WriteAgentContradictionSpike
+        expr: rate(writeagent_contradictions_total[30m]) > 1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Contradiction rate spike detected"
+          description: "Contradictions may indicate prompt drift, model regression, or entity corruption."

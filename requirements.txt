@@ -14,7 +14,6 @@ uvicorn[standard]>=0.30.0
 websockets>=13.0
 
 # Frontend
-gradio>=5.0.0
 pyvis>=0.3.2
 
 # Config + Utils

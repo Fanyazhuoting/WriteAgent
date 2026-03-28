@@ -1,0 +1,68 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Docker image tag to deploy to production
+        required: true
+        default: latest
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Copy compose files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          source: "docker-compose.yml,docker-compose.production.yml"
+          target: "~/writeagent"
+          strip_components: 1
+
+      - name: Deploy on production server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script: |
+            set -eu
+            mkdir -p ~/writeagent
+            cd ~/writeagent
+            cat > .env <<EOF
+            DASHSCOPE_API_KEY=${{ secrets.DASHSCOPE_API_KEY }}
+            QWEN_MODEL_NAME=${{ vars.QWEN_MODEL_NAME || 'qwen-max' }}
+            QWEN_BASE_URL=${{ vars.QWEN_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1' }}
+            LLM_TEMPERATURE=${{ vars.LLM_TEMPERATURE || '0.8' }}
+            LLM_MAX_TOKENS=${{ vars.LLM_MAX_TOKENS || '2048' }}
+            CHROMA_PERSIST_DIR=/app/chroma_data
+            SLIDING_WINDOW_SIZE=${{ vars.SLIDING_WINDOW_SIZE || '5' }}
+            HOT_CONTEXT_MAX_TOKENS=${{ vars.HOT_CONTEXT_MAX_TOKENS || '8000' }}
+            RETRIEVAL_K=${{ vars.RETRIEVAL_K || '8' }}
+            MAX_NEGOTIATION_ROUNDS=${{ vars.MAX_NEGOTIATION_ROUNDS || '3' }}
+            LANGCHAIN_TRACING_V2=${{ vars.LANGCHAIN_TRACING_V2 || 'true' }}
+            LANGCHAIN_API_KEY=${{ secrets.LANGCHAIN_API_KEY }}
+            LANGCHAIN_PROJECT=${{ vars.LANGCHAIN_PROJECT || 'WriteAgent' }}
+            LANGCHAIN_ENDPOINT=${{ vars.LANGCHAIN_ENDPOINT || 'https://api.smith.langchain.com' }}
+            PROMPT_VERSION=${{ vars.PROMPT_VERSION || 'v1' }}
+            PROMPTS_DIR=/app/prompts
+            WRITEAGENT_IMAGE=ghcr.io/${{ github.repository_owner }}/writeagent
+            WRITEAGENT_TAG=${{ github.event.inputs.image_tag }}
+            WRITEAGENT_PORT=${{ vars.WRITEAGENT_PORT || '8000' }}
+            EOF
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            docker compose -f docker-compose.yml -f docker-compose.production.yml pull
+            docker compose -f docker-compose.yml -f docker-compose.production.yml up -d
+            sleep 10
+            curl -fsS "http://localhost:${{ vars.WRITEAGENT_PORT || '8000' }}/api/v1/admin/health"

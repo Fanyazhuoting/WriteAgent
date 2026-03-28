@@ -24,6 +24,19 @@ def _make_all_agent_responses():
     return [wb, char, plot, consistency, narrative]
 
 
+class _ImmediateThread:
+    """Test double for threading.Thread that runs work synchronously."""
+
+    def __init__(self, target=None, args=None, kwargs=None, daemon=None):
+        self._target = target
+        self._args = args or ()
+        self._kwargs = kwargs or {}
+
+    def start(self):
+        if self._target:
+            self._target(*self._args, **self._kwargs)
+
+
 @pytest.fixture
 def client():
     from api.app import app
@@ -60,14 +73,22 @@ def test_next_scene(client):
     })
     novel_id = start_resp.json()["novel_id"]
 
-    with patch("agents.base_agent.chat_completion", side_effect=_make_all_agent_responses()):
+    with patch("agents.base_agent.chat_completion", side_effect=_make_all_agent_responses()), \
+         patch("api.routes.novel.threading.Thread", _ImmediateThread):
         resp = client.post(f"/api/v1/novel/{novel_id}/scene/next", json={
             "scene_brief": "Elena finds the map"
         })
     assert resp.status_code == 200
     data = resp.json()
-    assert "final_prose" in data
-    assert len(data["final_prose"]) > 10
+    assert data["status"] == "generating"
+    assert data["novel_id"] == novel_id
+
+    status_resp = client.get(f"/api/v1/novel/{novel_id}/scene/generation_status")
+    assert status_resp.status_code == 200
+    status_data = status_resp.json()
+    assert status_data["status"] == "done"
+    assert "final_prose" in status_data["result"]
+    assert len(status_data["result"]["final_prose"]) > 10
 
 
 def test_inject_event(client):

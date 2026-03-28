@@ -208,8 +208,11 @@ cd WriteAgent
 
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
+python --version                   # 需为 Python 3.11+
 pip install -r requirements.txt
 ```
+
+说明：当前仓库前端使用 `ui/static` 下的静态页面，不依赖 Gradio。
 
 ### 2. 配置环境变量
 
@@ -339,7 +342,31 @@ curl -X PUT http://localhost:8000/api/v1/admin/prompts/plot_agent/v2
 
 ---
 
-## 测试
+## ML/LLMSecOps Pipeline
+
+仓库已补充一套面向本项目的 ML/LLMSecOps 设计与骨架文件：
+
+- [LLMSecOps Pipeline](./docs/llmsecops-pipeline.md)
+- [GitHub Actions CI](./.github/workflows/ci.yml)
+- [Docker Release Workflow](./.github/workflows/docker-release.yml)
+- [Deploy Staging Workflow](./.github/workflows/deploy-staging.yml)
+- [Deploy Production Workflow](./.github/workflows/deploy-production.yml)
+- [Dockerfile](./Dockerfile)
+- [Docker Compose](./docker-compose.yml)
+- [Prometheus Alerts Template](./ops/monitoring/prometheus-alerts.yml)
+
+### Docker 本地运行
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+默认访问：
+
+```text
+http://localhost:8000
+```
 
 ```bash
 # 安装测试依赖（已含于 requirements.txt）
