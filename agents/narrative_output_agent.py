@@ -11,6 +11,7 @@ from utils.token_counter import count_tokens
 from utils.audit_logger import log_agent_call
 from utils.llm_client import chat_completion
 from prompts.registry import registry
+from guardrails.security_mcp import security_mcp
 
 
 def _extract_permanent_attrs_via_llm(name: str, full_description: str) -> str:
@@ -104,7 +105,13 @@ class NarrativeOutputAgent(BaseAgent):
             {"role": "user", "content": user_msg},
         ]
 
-        content, _ = self._call_llm(messages, novel_id, scene_number)
+        # Use security MCP for self-audit
+        content, _ = self._call_llm(
+            messages, 
+            novel_id, 
+            scene_number, 
+            mcp=security_mcp
+        )
         result = self._parse_json(content)
 
         final_prose = result.get("final_prose") or ""

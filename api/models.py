@@ -82,6 +82,8 @@ class AuditEntry(BaseModel):
     scene_number: int
     timestamp: str
     output_preview: str
+    prompt: Optional[str] = None
+    output: Optional[str] = None
     prompt_tokens: int
     completion_tokens: int
     duration_ms: int

@@ -1407,6 +1407,78 @@ function buildNegotiationPanel(neg) {
 // ─── Audit ────────────────────────────────────
 let _auditOffset = 0;
 
+function buildAuditCard(e) {
+  const cardId = `audit-card-${e.log_id}`;
+  const agentName = e.agent_id || 'unknown_agent';
+  const sceneNum  = e.scene_number || 0;
+  const timestamp = fmtTimestamp(e.timestamp);
+  const promptTokens = e.prompt_tokens || 0;
+  const completionTokens = e.completion_tokens || 0;
+  const duration = e.duration_ms || 0;
+  const preview = e.output_preview || '';
+  
+  // Format the prompt and output for display
+  // They might be JSON strings or plain text
+  const formatContent = (val) => {
+    if (!val) return '<i>(empty)</i>';
+    try {
+      // Try to pretty-print if it's JSON
+      const parsed = typeof val === 'string' ? JSON.parse(val) : val;
+      return esc(JSON.stringify(parsed, null, 2));
+    } catch (err) {
+      return esc(val);
+    }
+  };
+
+  const promptHtml = formatContent(e.prompt);
+  const outputHtml = formatContent(e.output || preview);
+
+  return `
+    <div class="audit-card" id="${cardId}">
+      <div class="audit-card-header" onclick="toggleAuditCard('${cardId}')">
+        <div class="audit-chevron">›</div>
+        <div class="audit-card-main">
+          <div class="audit-agent-badge">${esc(agentName)}</div>
+          <div class="audit-scene-tag">Scene ${sceneNum}</div>
+          <div class="audit-preview">${esc(preview.slice(0, 80))}...</div>
+        </div>
+        <div class="audit-meta">
+          <div class="audit-stat" title="Prompt Tokens">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="1" y="1" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1"/></svg>
+            ${promptTokens}
+          </div>
+          <div class="audit-stat" title="Completion Tokens">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="1" y="1" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1"/><path d="M3 3h4M3 5h4M3 7h2" stroke="currentColor" stroke-width="1"/></svg>
+            ${completionTokens}
+          </div>
+          <div class="audit-stat" title="Duration">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="currentColor" stroke-width="1"/><path d="M5 2.5V5l1.5 1.5" stroke="currentColor" stroke-width="1"/></svg>
+            ${duration}ms
+          </div>
+          <div class="audit-stat" style="opacity:0.6">${timestamp}</div>
+        </div>
+      </div>
+      <div class="audit-card-body">
+        <div class="audit-detail-grid">
+          <div class="audit-detail-box">
+            <div class="audit-detail-label">Prompt (Input)</div>
+            <pre class="audit-detail-content prompt">${promptHtml}</pre>
+          </div>
+          <div class="audit-detail-box">
+            <div class="audit-detail-label">Response (Output)</div>
+            <pre class="audit-detail-content output">${outputHtml}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+window.toggleAuditCard = (id) => {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('open');
+};
+
 async function loadAudit(offset = 0) {
   if (!state.activeNovelId) return;
   _auditOffset = offset;
@@ -1422,21 +1494,15 @@ async function loadAudit(offset = 0) {
     );
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
-    // Support both new {items,total} format and legacy array
     const items = Array.isArray(data) ? data : (data.items || []);
     const total = Array.isArray(data) ? items.length : (data.total ?? items.length);
+    
     if (!items || items.length === 0) {
       wrap.innerHTML = '<div class="empty-state">No audit entries yet.</div>';
       return;
     }
-    const headers = ['Agent','Scene','Timestamp','Prompt Tokens','Completion Tokens','Duration (ms)','Output Preview'];
-    const rows = items.map(e => [
-      e.agent_id ?? '—', e.scene_number ?? '—',
-      fmtTimestamp(e.timestamp),
-      e.prompt_tokens ?? 0, e.completion_tokens ?? 0, e.duration_ms ?? 0,
-      (e.output_preview ?? '').slice(0, 100),
-    ]);
-    wrap.innerHTML = buildTable(headers, rows);
+
+    wrap.innerHTML = `<div class="audit-cards-list">${items.map(e => buildAuditCard(e)).join('')}</div>`;
     renderAuditPagination(total, offset, limit);
   } catch (err) {
     wrap.innerHTML = `<div class="empty-state">Error: ${esc(err.message)}</div>`;

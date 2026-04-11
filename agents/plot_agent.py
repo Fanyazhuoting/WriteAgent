@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from .base_agent import BaseAgent
 from prompts.registry import registry
+from guardrails.security_mcp import security_mcp
 
 
 class PlotAgent(BaseAgent):
@@ -48,7 +49,13 @@ class PlotAgent(BaseAgent):
             {"role": "user", "content": user_msg},
         ]
 
-        content, _ = self._call_llm(messages, novel_id, scene_number)
+        # Use security MCP to sanitize human injection if present
+        content, _ = self._call_llm(
+            messages, 
+            novel_id, 
+            scene_number, 
+            mcp=security_mcp
+        )
         result = self._parse_json(content)
 
         scene_draft = result.get("scene_draft", content)

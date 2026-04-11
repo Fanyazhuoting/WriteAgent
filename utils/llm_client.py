@@ -1,4 +1,5 @@
 """Qwen-max LLM client via DashScope OpenAI-compatible API."""
+from typing import Any
 from openai import OpenAI
 from config.settings import settings
 
@@ -16,24 +17,40 @@ def chat_completion(
     model: str | None = None,
     temperature: float | None = None,
     max_tokens: int | None = None,
-) -> str:
+    tools: list[dict] | None = None,
+    tool_choice: str | dict | None = None,
+) -> Any:
     """
-    Call Qwen-max and return the assistant message content.
+    Call Qwen-max and return the assistant message content or object.
 
     Args:
         messages: List of {"role": ..., "content": ...} dicts.
         model: Override model name (defaults to settings.qwen_model_name).
         temperature: Override temperature.
         max_tokens: Override max_tokens.
+        tools: Optional list of tool definitions.
+        tool_choice: Optional tool choice specification.
 
     Returns:
-        The model's reply as a plain string.
+        The model's reply (message object if tools are used, else content string).
     """
     client = get_llm_client()
-    response = client.chat.completions.create(
-        model=model or settings.qwen_model_name,
-        messages=messages,
-        temperature=temperature if temperature is not None else settings.llm_temperature,
-        max_tokens=max_tokens or settings.llm_max_tokens,
-    )
-    return response.choices[0].message.content
+    kwargs = {
+        "model": model or settings.qwen_model_name,
+        "messages": messages,
+        "temperature": temperature if temperature is not None else settings.llm_temperature,
+        "max_tokens": max_tokens or settings.llm_max_tokens,
+    }
+    if tools:
+        kwargs["tools"] = tools
+    if tool_choice:
+        kwargs["tool_choice"] = tool_choice
+
+    response = client.chat.completions.create(**kwargs)
+    message = response.choices[0].message
+    
+    # If tools were provided, return the full message object so caller can check tool_calls
+    if tools:
+        return message
+    
+    return message.content
