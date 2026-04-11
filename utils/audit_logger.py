@@ -43,6 +43,8 @@ def log_agent_call(
         "prompt_tokens": prompt_tokens,
         "completion_tokens": completion_tokens,
         "input_hash": hashlib.sha256(prompt.encode()).hexdigest()[:16],
+        "prompt": prompt,                      # Store the full prompt
+        "output": output,                      # Store the full output
         "output_preview": output[:200],
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "duration_ms": duration_ms,

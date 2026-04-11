@@ -36,6 +36,8 @@ def get_audit_trail(
             scene_number=e.get("scene_number", 0),
             timestamp=e.get("timestamp", ""),
             output_preview=e.get("output_preview", ""),
+            prompt=e.get("prompt"),
+            output=e.get("output"),
             prompt_tokens=e.get("prompt_tokens", 0),
             completion_tokens=e.get("completion_tokens", 0),
             duration_ms=e.get("duration_ms", 0),

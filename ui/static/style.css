@@ -2490,3 +2490,133 @@ table.data-table tr:hover td { background: rgba(40,40,61,0.3); }
 @keyframes plb-spin {
   to { transform: rotate(360deg); }
 }
+
+/* ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
+   Audit Tab ¡ª Collapsible Cards
+   ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T */
+
+.audit-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.audit-card:hover { border-color: var(--border-light); }
+.audit-card.open { border-color: var(--accent); }
+
+.audit-card-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  cursor: pointer;
+  user-select: none;
+  gap: 12px;
+}
+.audit-card-header:hover { background: rgba(255,255,255,0.03); }
+
+.audit-card-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.audit-agent-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: var(--bg-primary);
+  color: var(--accent);
+  border: 1px solid rgba(226,181,255,0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  min-width: 140px;
+  text-align: center;
+}
+
+.audit-scene-tag {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.audit-preview {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: italic;
+}
+
+.audit-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+
+.audit-stat { display: flex; align-items: center; gap: 4px; }
+
+.audit-chevron {
+  font-size: 18px;
+  color: var(--text-faint);
+  transition: transform 0.2s;
+  line-height: 1;
+}
+.audit-card.open .audit-chevron { transform: rotate(90deg); color: var(--accent); }
+
+.audit-card-body {
+  display: none;
+  padding: 16px;
+  background: rgba(17,17,37,0.4);
+  border-top: 1px solid var(--border);
+}
+.audit-card.open .audit-card-body { display: block; }
+
+.audit-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.audit-detail-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.audit-detail-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  letter-spacing: 1px;
+}
+
+.audit-detail-content {
+  background: #090915;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.audit-detail-content.prompt { border-left: 3px solid #3b82f6; }
+.audit-detail-content.output { border-left: 3px solid #10b981; }
+

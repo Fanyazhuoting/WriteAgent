@@ -5,6 +5,7 @@ from .base_agent import BaseAgent
 from memory.entity_store import get_world_rules
 from memory.retrieval import build_context_for_agent
 from prompts.registry import registry
+from guardrails.security_mcp import security_mcp
 
 
 class WorldbuildingAgent(BaseAgent):
@@ -40,7 +41,13 @@ class WorldbuildingAgent(BaseAgent):
             {"role": "user", "content": user_msg},
         ]
 
-        content, _ = self._call_llm(messages, novel_id, scene_number)
+        # Use security MCP to sanitize input if needed
+        content, _ = self._call_llm(
+            messages, 
+            novel_id, 
+            scene_number, 
+            mcp=security_mcp
+        )
         result = self._parse_json(content)
 
         return {

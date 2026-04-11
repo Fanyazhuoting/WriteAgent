@@ -12,6 +12,10 @@ from utils.token_counter import count_tokens
 from prompts.registry import registry
 
 
+from guardrails.security_mcp import security_mcp
+from utils.mcp_types import MCPRegistry
+
+
 class BaseAgent(ABC):
     """
     Abstract base for all agents.
@@ -34,17 +38,63 @@ class BaseAgent(ABC):
         novel_id: str,
         scene_number: int,
         prompt_version: str = "v1",
+        mcp: MCPRegistry | None = None,
     ) -> tuple[str, dict]:
         """
-        Call the LLM, log the interaction, and return (content, log_entry).
-        Attempts to parse JSON; returns raw string if parsing fails.
+        Call the LLM, handle tool calls using MCP, log the interaction, and return (content, log_entry).
         """
-        prompt_text = "\n".join(m["content"] for m in messages)
         t0 = time.monotonic()
-        content = chat_completion(messages)
-        duration_ms = int((time.monotonic() - t0) * 1000)
+        
+        # Initial call - use provided MCP or default to security_mcp
+        active_mcp = mcp or security_mcp
+        tool_schemas = active_mcp.get_schemas() if active_mcp else None
 
-        prompt_tokens = count_tokens(prompt_text)
+        response = chat_completion(
+            messages=messages,
+            tools=tool_schemas,
+        )
+        
+        # Handle tool calls in a loop
+        if active_mcp and hasattr(response, "tool_calls") and response.tool_calls:
+            # Convert response message to dict for history
+            msg_dict = response.model_dump()
+            msg_dict = {k: v for k, v in msg_dict.items() if v is not None}
+            messages.append(msg_dict)
+            
+            for tool_call in response.tool_calls:
+                func_name = tool_call.function.name
+                func_args = json.loads(tool_call.function.arguments)
+                
+                # Execute the tool via MCP
+                result = active_mcp.handle_call(func_name, func_args)
+                
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "name": func_name,
+                    "content": json.dumps(result, ensure_ascii=False)
+                })
+            
+            # Final call after tool results are added
+            final_response = chat_completion(messages=messages)
+            content = final_response if isinstance(final_response, str) else final_response.content
+        else:
+            # response is just content string if no tools or no tool_calls
+            content = response if isinstance(response, str) else response.content
+
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        
+        # For logging, we save the full conversation history as a formatted string
+        # or JSON to ensure tool calls are visible.
+        try:
+            prompt_log_text = json.dumps(messages, ensure_ascii=False, indent=2)
+        except Exception:
+            prompt_log_text = "\n".join(
+                m.get("content") if isinstance(m.get("content"), str) else str(m) 
+                for m in messages
+            )
+        
+        prompt_tokens = count_tokens(prompt_log_text)
         completion_tokens = count_tokens(content)
 
         log_entry = log_agent_call(
@@ -52,8 +102,8 @@ class BaseAgent(ABC):
             agent_id=self.agent_id,
             scene_number=scene_number,
             prompt_version=prompt_version,
-            prompt=prompt_text,
-            output=content,
+            prompt=prompt_log_text,           # Full JSON-like history
+            output=content,                   # Final prose
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             duration_ms=duration_ms,
