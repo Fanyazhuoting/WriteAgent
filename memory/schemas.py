@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 import uuid
 
 
-EntityType = Literal["character", "location", "world_rule", "faction", "artifact"]
+EntityType = Literal["character", "location", "world_rule", "faction", "artifact", "system"]
 RuleSeverity = Literal["absolute", "hard", "soft"]
 RuleCategory = Literal["physics", "magic", "social", "geography", "other"]
 

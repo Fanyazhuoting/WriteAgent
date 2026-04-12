@@ -29,6 +29,10 @@ class BaseAgent(ABC):
     agent_id: str = "base_agent"
     prompt_name: str = "base"
 
+    # --- Tool & Retry Configuration ---
+    MAX_TOOL_TURNS = 5  # Maximum number of tool-interaction rounds per call
+    MAX_RETRIES = 3     # Maximum retries for API or parsing failures
+
     def _get_system_prompt(self, version: str | None = None) -> str:
         return registry.get_system(self.prompt_name, version)
 
@@ -41,58 +45,81 @@ class BaseAgent(ABC):
         mcp: MCPRegistry | None = None,
     ) -> tuple[str, dict]:
         """
-        Call the LLM, handle tool calls using MCP, log the interaction, and return (content, log_entry).
+        Call the LLM, handle tool calls using MCP in a multi-turn loop, and return (content, log_entry).
+        Includes retry logic for robustness.
         """
         t0 = time.monotonic()
         
-        # Initial call - use provided MCP or default to security_mcp
+        # Use provided MCP or default to security_mcp
         active_mcp = mcp or security_mcp
         tool_schemas = active_mcp.get_schemas() if active_mcp else None
-
-        response = chat_completion(
-            messages=messages,
-            tools=tool_schemas,
-        )
         
-        # Handle tool calls in a loop
-        if active_mcp and hasattr(response, "tool_calls") and response.tool_calls:
-            # Convert response message to dict for history
-            msg_dict = response.model_dump()
-            msg_dict = {k: v for k, v in msg_dict.items() if v is not None}
-            messages.append(msg_dict)
-            
-            for tool_call in response.tool_calls:
-                func_name = tool_call.function.name
-                func_args = json.loads(tool_call.function.arguments)
+        turn_count = 0
+        retry_count = 0
+        content = ""
+
+        while turn_count < self.MAX_TOOL_TURNS:
+            try:
+                response = chat_completion(
+                    messages=messages,
+                    tools=tool_schemas,
+                )
                 
-                # Execute the tool via MCP
-                result = active_mcp.handle_call(func_name, func_args)
+                # Check if LLM wants to call tools
+                if active_mcp and hasattr(response, "tool_calls") and response.tool_calls:
+                    # 1. Add assistant message (containing tool_calls) to history
+                    msg_dict = response.model_dump()
+                    msg_dict = {k: v for k, v in msg_dict.items() if v is not None}
+                    messages.append(msg_dict)
+                    
+                    # 2. Execute each tool call
+                    for tool_call in response.tool_calls:
+                        func_name = tool_call.function.name
+                        try:
+                            func_args = json.loads(tool_call.function.arguments)
+                            
+                            # --- CRITICAL FIX: Prevent novel_id Hallucination ---
+                            # If the tool expects a novel_id, we override whatever 
+                            # the LLM provided with the ACTUAL internal novel_id.
+                            if "novel_id" in func_args:
+                                func_args["novel_id"] = novel_id
+                            
+                            result = active_mcp.handle_call(func_name, func_args)
+                        except json.JSONDecodeError:
+                            result = {"error": "Invalid tool arguments JSON."}
+                        except Exception as e:
+                            result = {"error": str(e)}
+                        
+                        # 3. Add tool result to history
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "name": func_name,
+                            "content": json.dumps(result, ensure_ascii=False)
+                        })
+                    
+                    turn_count += 1
+                    continue # Start next turn to let LLM process tool results
                 
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "name": func_name,
-                    "content": json.dumps(result, ensure_ascii=False)
-                })
-            
-            # Final call after tool results are added
-            final_response = chat_completion(messages=messages)
-            content = final_response if isinstance(final_response, str) else final_response.content
-        else:
-            # response is just content string if no tools or no tool_calls
-            content = response if isinstance(response, str) else response.content
+                # If no tool_calls, we have the final content
+                content = response if isinstance(response, str) else response.content
+                break
+
+            except Exception as e:
+                retry_count += 1
+                if retry_count >= self.MAX_RETRIES:
+                    content = f"Error: LLM call failed after {self.MAX_RETRIES} retries. Last error: {str(e)}"
+                    break
+                time.sleep(1) # Simple backoff
+                continue
 
         duration_ms = int((time.monotonic() - t0) * 1000)
         
         # For logging, we save the full conversation history as a formatted string
-        # or JSON to ensure tool calls are visible.
         try:
             prompt_log_text = json.dumps(messages, ensure_ascii=False, indent=2)
         except Exception:
-            prompt_log_text = "\n".join(
-                m.get("content") if isinstance(m.get("content"), str) else str(m) 
-                for m in messages
-            )
+            prompt_log_text = "\n".join(str(m) for m in messages)
         
         prompt_tokens = count_tokens(prompt_log_text)
         completion_tokens = count_tokens(content)
@@ -102,11 +129,12 @@ class BaseAgent(ABC):
             agent_id=self.agent_id,
             scene_number=scene_number,
             prompt_version=prompt_version,
-            prompt=prompt_log_text,           # Full JSON-like history
-            output=content,                   # Final prose
+            prompt=prompt_log_text,           # Full history
+            output=content,                   # Final response
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             duration_ms=duration_ms,
+            metadata={"tool_turns": turn_count, "retries": retry_count}
         )
         return content, log_entry
 

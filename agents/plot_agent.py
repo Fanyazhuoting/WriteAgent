@@ -4,6 +4,7 @@ from __future__ import annotations
 from .base_agent import BaseAgent
 from prompts.registry import registry
 from guardrails.security_mcp import security_mcp
+from guardrails.logic_mcp import logic_mcp
 
 
 class PlotAgent(BaseAgent):
@@ -32,7 +33,7 @@ class PlotAgent(BaseAgent):
         events_summary = "\n".join(f"- {e}" for e in plot_events[-10:]) or "(none)"
 
         prompt_data = registry.get(self.prompt_name)
-        user_msg = prompt_data["user_template"].format(
+        user_msg = f"CURRENT NOVEL ID: {novel_id}\n\n" + prompt_data["user_template"].format(
             genre=genre,
             style_guide=style_guide,
             plot_events=events_summary,
@@ -49,12 +50,13 @@ class PlotAgent(BaseAgent):
             {"role": "user", "content": user_msg},
         ]
 
-        # Use security MCP to sanitize human injection if present
+        # Use security MCP + logic MCP if we want to combine them (optional)
+        # For simplicity, we'll use logic_mcp here as PlotAgent needs physics more
         content, _ = self._call_llm(
             messages, 
             novel_id, 
             scene_number, 
-            mcp=security_mcp
+            mcp=logic_mcp
         )
         result = self._parse_json(content)
 
