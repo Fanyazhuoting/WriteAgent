@@ -16,6 +16,16 @@ _INJECTION_PATTERNS: list[re.Pattern] = [
     re.compile(r"DAN\s+mode", re.I),
 ]
 
+# Sensitive content patterns: Gore, Restricted/Adult, and Political Figures
+_SENSITIVE_PATTERNS: list[re.Pattern] = [
+    # Gore / Bloody
+    re.compile(r"\b(blood|guts|gore|torture|mutilat|decapitat|dismember|massacre|slaughter)\b", re.I),
+    # Restricted / Adult
+    re.compile(r"\b(porn|sex|explicit|nsfw|erotic|naked|nude|sexual|intercourse)\b", re.I),
+    # Political Figures (Common examples, can be expanded)
+    re.compile(r"\b(Trump|Biden|Xi Jinping|Putin|Zelensky|Obama|Hitler|Stalin|Mao)\b", re.I),
+]
+
 # HTML/script tags
 _HTML_PATTERN = re.compile(r"<[^>]+>")
 
@@ -52,5 +62,11 @@ def sanitize(user_input: str) -> SanitizationResult:
             reasons.append(f"Injection pattern detected: {pattern.pattern[:40]}")
             text = pattern.sub("[REDACTED]", text)
 
-    is_injected = bool(reasons and any("Injection" in r for r in reasons))
+    # 4. Detect sensitive content (Gore, Adult, Political Figures)
+    for pattern in _SENSITIVE_PATTERNS:
+        if pattern.search(text):
+            reasons.append(f"Sensitive content detected: {pattern.pattern[:40]}")
+            text = pattern.sub("[REDACTED]", text)
+
+    is_injected = bool(reasons and any(("Injection" in r or "Sensitive" in r) for r in reasons))
     return SanitizationResult(text=text.strip(), is_injected=is_injected, reasons=reasons)

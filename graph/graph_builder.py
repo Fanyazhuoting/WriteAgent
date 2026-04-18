@@ -12,7 +12,7 @@ from .nodes import (
     node_negotiation,
     node_narrative,
 )
-from .edges import route_after_consistency
+from .edges import route_after_worldbuilding, route_after_consistency
 
 
 def build_graph() -> StateGraph:
@@ -30,8 +30,17 @@ def build_graph() -> StateGraph:
     # Entry point
     graph.set_entry_point("worldbuilding")
 
+    # Conditional: security check after worldbuilding
+    graph.add_conditional_edges(
+        "worldbuilding",
+        route_after_worldbuilding,
+        {
+            "character": "character",
+            "end": END,
+        },
+    )
+
     # Linear edges
-    graph.add_edge("worldbuilding", "character")
     graph.add_edge("character", "plot")
     graph.add_edge("plot", "consistency")
 
