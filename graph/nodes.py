@@ -19,7 +19,10 @@ _narrative = NarrativeOutputAgent()
 
 def node_worldbuilding(state: GraphState) -> dict:
     update = _worldbuilding.run(state)
-    update["phase"] = "character"
+    if not update.get("is_safe", True):
+        update["phase"] = "done"
+    else:
+        update["phase"] = "character"
     return update
 
 
