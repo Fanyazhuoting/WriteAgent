@@ -7,6 +7,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from prometheus_client import make_asgi_app
 
 from api.routes import novel, entities, audit, admin
 from api.websocket import ws_stream
@@ -30,6 +31,8 @@ async def lifespan(app: FastAPI):
         except Exception:
             pass  # empty collection — that's fine
     logger.info("ChromaDB ready.")
+    from utils.metrics import health_status
+    health_status.set(1)
     yield
 
 
@@ -54,6 +57,9 @@ def create_app() -> FastAPI:
     app.include_router(entities.router, prefix="/api/v1")
     app.include_router(audit.router, prefix="/api/v1")
     app.include_router(admin.router, prefix="/api/v1")
+
+    # Prometheus metrics
+    app.mount("/metrics", make_asgi_app())
 
     # Serve static UI files
     app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")

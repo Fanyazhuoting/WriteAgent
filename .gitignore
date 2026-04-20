@@ -14,3 +14,7 @@ build/
 .pytest_cache/
 .coverage
 htmlcov/
+create_ppt_en.py
+.gitignore
+create_ppt.py
+report.html

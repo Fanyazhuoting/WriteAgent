@@ -114,15 +114,20 @@ class BaseAgent(ABC):
                 continue
 
         duration_ms = int((time.monotonic() - t0) * 1000)
-        
+
         # For logging, we save the full conversation history as a formatted string
         try:
             prompt_log_text = json.dumps(messages, ensure_ascii=False, indent=2)
         except Exception:
             prompt_log_text = "\n".join(str(m) for m in messages)
-        
+
         prompt_tokens = count_tokens(prompt_log_text)
         completion_tokens = count_tokens(content)
+
+        from utils.metrics import llm_call_duration, llm_tokens_total
+        llm_call_duration.labels(agent_id=self.agent_id).observe(duration_ms / 1000)
+        llm_tokens_total.labels(agent_id=self.agent_id, direction="prompt").inc(prompt_tokens)
+        llm_tokens_total.labels(agent_id=self.agent_id, direction="completion").inc(completion_tokens)
 
         log_entry = log_agent_call(
             novel_id=novel_id,

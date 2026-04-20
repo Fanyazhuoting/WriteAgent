@@ -165,7 +165,6 @@ class ConsistencyChecker(BaseAgent):
         has_contradiction = bool(result.get("has_contradiction", False))
         contradictions = result.get("contradictions", [])
         consistency_reasoning = result.get("reasoning", {})
-
         # If the code pre-scan found hints that the LLM did not flag, promote them.
         # This prevents LLM under-reporting from silently dropping confirmed code findings.
         llm_fields = {c.get("field", "") for c in contradictions}
@@ -182,6 +181,10 @@ class ConsistencyChecker(BaseAgent):
                     "note": "Flagged by code pre-scan; not confirmed by LLM — verify before acting.",
                 })
                 has_contradiction = True
+
+        from utils.metrics import contradictions_total
+        for c in contradictions:
+            contradictions_total.labels(severity=c.get("severity", "unknown")).inc()
 
         detection_entry = {
             "scene_number": scene_number,
