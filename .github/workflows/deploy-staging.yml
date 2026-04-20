@@ -37,6 +37,16 @@ jobs:
             echo "image_tag=latest" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Clean stale monitoring files on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            sudo rm -rf ~/writeagent/ops/monitoring
+            mkdir -p ~/writeagent/ops/monitoring
+
       - name: Copy compose files to server
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -45,6 +55,7 @@ jobs:
           key: ${{ secrets.STAGING_SSH_KEY }}
           source: "docker-compose.yml,docker-compose.staging.yml,ops/monitoring"
           target: "~/writeagent"
+          overwrite: true
 
       - name: Deploy on staging server
         uses: appleboy/ssh-action@v1.0.3
