@@ -68,6 +68,8 @@ def _run_graph(novel_id: str, state: dict, ws_queues: dict):
         }, ws_queues)
 
     except Exception as e:
+        from utils.metrics import scene_generation_failures
+        scene_generation_failures.inc()
         _generation_jobs[novel_id] = {"status": "error", "error": str(e)}
         _push_ws_event(novel_id, {
             "event_type": "error",

@@ -52,8 +52,13 @@ def log_agent_call(
         "metadata": metadata or {},
     }
     # Write to JSONL
-    with open(_log_path(novel_id), "a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    try:
+        with open(_log_path(novel_id), "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception:
+        from utils.metrics import audit_log_failures
+        audit_log_failures.inc()
+        raise
     # Keep in memory
     if novel_id not in _in_memory:
         _in_memory[novel_id] = deque(maxlen=_MAX_IN_MEMORY)
