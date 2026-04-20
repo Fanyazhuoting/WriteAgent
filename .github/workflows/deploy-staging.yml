@@ -44,8 +44,9 @@ jobs:
           username: ${{ secrets.STAGING_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
           script: |
-            sudo rm -rf ~/writeagent/ops/monitoring
-            mkdir -p ~/writeagent/ops/monitoring
+            sudo rm -rf ~/writeagent/ops
+            sudo mkdir -p ~/writeagent/ops/monitoring
+            sudo chown -R $USER:$USER ~/writeagent/ops
 
       - name: Copy compose files to server
         uses: appleboy/scp-action@v0.1.7
