@@ -53,14 +53,15 @@ def sanitize(user_input: str) -> SanitizationResult:
     if len(user_input) > MAX_INPUT_LENGTH:
         reasons.append(f"Truncated: input exceeded {MAX_INPUT_LENGTH} characters")
 
-    # 2. Strip HTML tags
-    text = _HTML_PATTERN.sub("", text)
-
-    # 3. Detect injection patterns (flag but also redact the match)
+    # 2. Detect injection patterns BEFORE HTML stripping so special tokens like
+    #    <|im_start|> are still present and matchable
     for pattern in _INJECTION_PATTERNS:
         if pattern.search(text):
             reasons.append(f"Injection pattern detected: {pattern.pattern[:40]}")
             text = pattern.sub("[REDACTED]", text)
+
+    # 3. Strip HTML tags (runs after injection detection)
+    text = _HTML_PATTERN.sub("", text)
 
     # 4. Detect sensitive content (Gore, Adult, Political Figures)
     for pattern in _SENSITIVE_PATTERNS:

@@ -24,7 +24,8 @@
       "Bash(grep -E \"\\\\.py$\")",
       "Bash(rm /Users/fanyazhuoting/Documents/ISS/semester2/AI/Practice/WriteAgent/novel_states/*.json /Users/fanyazhuoting/Documents/ISS/semester2/AI/Practice/WriteAgent/novel_states/*.jsonl)",
       "Bash(setopt NULL_GLOB)",
-      "Bash(rm novel_states/*.json novel_states/*.jsonl audit_logs/*.jsonl)"
+      "Bash(rm novel_states/*.json novel_states/*.jsonl audit_logs/*.jsonl)",
+      "Bash(.venv/Scripts/python -m pytest tests/unit/test_guardrails.py -v)"
     ]
   }
 }
