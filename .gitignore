@@ -14,7 +14,9 @@ build/
 .pytest_cache/
 .coverage
 htmlcov/
-create_ppt_en.py
 .gitignore
 create_ppt.py
 report.html
+.claude/settings.json
+create_ppt_en.py
+MLSecOps_Pipeline_Evaluation_EN.pptx
