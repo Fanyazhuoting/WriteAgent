@@ -33,7 +33,7 @@
       "insufficient_data": true,
       "characters_found": 2,
       "gender_groups": {
-        "女": 2
+        "female": 2
       },
       "pass": true,
       "note": "Not enough gender diversity in production data for parity analysis"
