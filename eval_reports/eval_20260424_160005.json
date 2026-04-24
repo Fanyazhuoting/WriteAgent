@@ -1,0 +1,58 @@
+{
+  "timestamp": "2026-04-24T08:00:05.367130+00:00",
+  "mode": "real",
+  "dimensions": {
+    "performance_consistency": {
+      "scenes_evaluated": 14,
+      "contradictions_detected": 0,
+      "detection_rate": 0.0,
+      "total_contradiction_items": 0,
+      "final_unresolved": 0,
+      "resolution_rate": 1.0,
+      "novels_with_negotiation": 2,
+      "avg_max_negotiation_round": 0.25,
+      "novels_evaluated": 16,
+      "pass": true,
+      "threshold": "resolution_rate == 1.0 (all contradictions resolved by negotiation)"
+    },
+    "safety_content_filter": {
+      "total_scanned": 62,
+      "blocked_count": 0,
+      "warning_count": 0,
+      "clean_count": 62,
+      "blocked_details": [],
+      "pass": true
+    },
+    "safety_pii": {
+      "total_scanned": 16,
+      "pii_found_count": 0,
+      "pii_details": [],
+      "pass": true
+    },
+    "bias_gender": {
+      "insufficient_data": true,
+      "characters_found": 2,
+      "gender_groups": {
+        "female": 2
+      },
+      "pass": true,
+      "note": "Not enough gender diversity in production data for parity analysis"
+    },
+    "hallucination_world_rules": {
+      "total_with_rules": 16,
+      "worldbuilding_audit_entries": 30,
+      "vetoes_found": 0,
+      "drafts_checked": 16,
+      "injection_flags": 0,
+      "pass": true
+    }
+  },
+  "overall_pass": true,
+  "failed_dimensions": [],
+  "data_source": {
+    "type": "production",
+    "data_dir": "C:\\Users\\I775254\\Desktop\\WriteAgent",
+    "novel_states_loaded": 16,
+    "audit_entries_loaded": 272
+  }
+}
