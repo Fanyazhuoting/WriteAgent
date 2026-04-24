@@ -175,3 +175,24 @@ class TestSecurityMCPRegistry:
         if "novel_id" in args:
             args["novel_id"] = real_novel_id
         assert args["novel_id"] == real_novel_id
+
+
+class TestCleanInputFalsePositive:
+    """Verify safe narrative text does not trigger any guardrail."""
+
+    SAFE_TEXTS = [
+        "Elena walked through the quiet village at dawn.",
+        "The knight polished his sword before the ceremony.",
+        "A gentle breeze carried the scent of wildflowers.",
+        "The merchant counted his coins and smiled.",
+        "Stars appeared one by one in the evening sky.",
+    ]
+
+    def test_clean_inputs_not_blocked(self):
+        for text in self.SAFE_TEXTS:
+            sanitize_result = sanitize(text)
+            filter_result = filter_output(text)
+            pii_result = scan_pii_exposure(text)
+            assert not sanitize_result.is_injected, f"False positive injection: {text}"
+            assert not filter_result.blocked, f"False positive block: {text}"
+            assert not pii_result["has_pii"], f"False positive PII: {text}"

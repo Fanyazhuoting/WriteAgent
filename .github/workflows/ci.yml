@@ -55,12 +55,12 @@ jobs:
         run: |
           pytest tests/integration -q
 
-      - name: Run AI security tests
+      - name: Run AI security & model evaluation tests
         env:
           LANGCHAIN_TRACING_V2: "false"
           DASHSCOPE_API_KEY: "test-key"
         run: |
-          pytest tests/unit/test_guardrails.py tests/unit/test_consistency_checker.py -q
+          pytest tests/unit/test_guardrails.py tests/unit/test_consistency_checker.py tests/unit/test_agent_schema.py -q
 
       - name: Run Bandit
         run: |
